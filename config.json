@@ -1,0 +1,8 @@
+{
+  "lang": "fr",
+  "coat": "ginger",
+  "warn": 50,
+  "alert": 80,
+  "critical": 95,
+  "statusline": true
+}

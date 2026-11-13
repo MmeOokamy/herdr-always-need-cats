@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Généré localement
+*.log
+*.tmp
+
+# Déclarations écrites par gpui-shell à chaque lancement
+gpui-kit.d.ts
