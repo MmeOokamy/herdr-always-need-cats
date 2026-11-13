@@ -23,7 +23,7 @@ limits of the Claude Code account:
 
 | Usage (session or week) | What the cat does |
 |---|---|
-| Below 50% | Sits, green gauge; types on its laptop while Claude is busy |
+| Below 50% | Sits, green gauge; busy while Claude is (see below) |
 | 50% and more | Same, yellow gauge |
 | 80% and more | Meows, orange exclamation mark, Herdr notification |
 | 95% and more | Meows faster, in red, Herdr notification |
@@ -52,12 +52,16 @@ same for a given terminal address; its subagents are kittens. Other agents
 
 | Herdr state | Cat |
 |---|---|
-| `working` | types on its laptop |
+| `working` | busy: laptop, crepes, yarn, Rubik's cube, in turn |
 | `blocked` (needs you) | meows |
 | `done` | jumps for joy |
 | `idle` | sits; falls asleep after 3 minutes without activity (except the agent on screen) |
 
-Herdr does not tell "thinking" from "working": no crepes here.
+A busy cat (an agent at work, or the usage cat while Claude uses the account)
+takes turns, about 3 seconds each, as the desktop cats of we-always-need-cats
+do while Claude thinks: it types on its laptop, flips a crepe, plays with a
+ball of yarn, then solves a Rubik's cube. Each coat starts the cycle at
+another turn, so that neighbouring agents do not all do the same thing.
 
 ## toast-cats: agent notifications
 
