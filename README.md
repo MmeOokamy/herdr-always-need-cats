@@ -1,192 +1,218 @@
 # herdr-always-need-cats
 
-Des chats en pixel art dans l'application Herdr (`~/.config/herdr-app`) : un
-chat d'usage dans la barre latérale, et un chat par agent Claude Code dans la
-liste des agents. Le projet se suffit à lui-même : il contient ses dessins,
-sa status line et ses réglages.
+English | [Français](README.fr.md)
 
-## usage-cat : le chat d'usage dans Herdr
+Pixel art cats in the Herdr app (`~/.config/herdr-app`):
 
-Un chat dans la barre latérale de Herdr, entre Spaces et Agents. Il suit les limites d'usage du compte Claude Code :
+- a usage cat in the sidebar;
+- one cat per Claude Code agent in the agents list;
+- agent notifications shaped like a cat with its speech bubble.
 
-- sous le chat, jauge épaisse : la session (fenêtre de 5 heures) ; jauge
-  fine : la semaine (7 jours) ;
-- à droite : le pourcentage de chaque fenêtre et l'heure de son prochain
-  reset (masqué quand la barre latérale est repliée).
+The project stands on its own: it holds its drawings, its status line and its
+settings.
 
-| Usage (session ou semaine) | Comportement du chat |
+## usage-cat: the usage cat
+
+A cat in the Herdr sidebar, between Spaces and Agents. It watches the usage
+limits of the Claude Code account:
+
+- under the cat, thick gauge: the session (5-hour window); thin gauge: the
+  week (7 days);
+- on the right: the percentage of each window and the time of its next reset
+  (hidden when the sidebar is collapsed).
+
+| Usage (session or week) | What the cat does |
 |---|---|
-| Moins de 50 % | Assis, jauge verte ; tape sur son ordinateur quand Claude consomme |
-| 50 % et plus | Pareil, jauge jaune |
-| 80 % et plus | Miaule, point d'exclamation orange, notification Herdr |
-| 95 % et plus | Miaule plus vite, en rouge, notification Herdr |
-| 100 % | S'endort jusqu'au reset |
-| Reset d'une limite presque atteinte | Saute de joie pendant 30 secondes |
+| Below 50% | Sits, green gauge; types on its laptop while Claude is busy |
+| 50% and more | Same, yellow gauge |
+| 80% and more | Meows, orange exclamation mark, Herdr notification |
+| 95% and more | Meows faster, in red, Herdr notification |
+| 100% | Sleeps until the reset |
+| Reset of a nearly reached limit | Jumps for joy for 30 seconds |
 
-### Fonctionnement
+It also tells when the project has an update (see [Updates](#updates)).
 
-- Les chiffres viennent de `~/.cache/usage-cat/state.json`, écrit par
-  `statusline.py`, la status line de Claude Code installée par `install.py`.
-  Le mod relit ce fichier toutes les 2 secondes.
-- Langue, pelage et seuils sont lus dans `config.json` (`lang`, `coat`,
-  `warn`, `alert`, `critical`) au démarrage du mod.
-- Il signale aussi les mises à jour du projet (voir plus bas).
-- Les animations sont des WebP animés, joués nativement par Herdr (pas de
-  redessin par timer). Ils sont générés à partir de `tools/drawings.py` par
-  `tools/make_sprites.py` : un fichier par pelage, animation et niveau.
+### How it works
 
-### Réglages : `config.json`
+- The figures come from `~/.cache/usage-cat/state.json`, written by
+  `statusline.py`, the Claude Code status line set up by `install.py`. The
+  mod reads this file every 2 seconds.
+- Language, coat and thresholds are read from `config.json` when the mod
+  starts.
+- The animations are animated WebP images, played natively by Herdr (no
+  redraw on a timer). `tools/make_sprites.py` generates them from
+  `tools/drawings.py`: one file per coat, animation and level.
 
-`install.py` crée `config.json` à partir de `config.example.json`. Ce fichier
-est propre à la machine et ignoré par git : le modifier ne bloque pas les
-mises à jour.
+## agents-cats: one cat per agent
 
-| Clé | Défaut | Rôle |
+A copy of the Herdr `agents` mod (the agents list of the sidebar) where each
+Claude Code agent has a cat as its icon. Each agent has its own coat, the
+same for a given terminal address; its subagents are kittens. Other agents
+(Codex, etc.) keep their icon.
+
+| Herdr state | Cat |
+|---|---|
+| `working` | types on its laptop |
+| `blocked` (needs you) | meows |
+| `done` | jumps for joy |
+| `idle` | sits; falls asleep after 3 minutes without activity (except the agent on screen) |
+
+Herdr does not tell "thinking" from "working": no crepes here.
+
+## toast-cats: agent notifications
+
+Herdr posts a notification when an agent finished while you were looking
+elsewhere, or when it needs you. For a Claude Code agent, it takes the shape
+of the we-always-need-cats cats: the agent's cat, with the same coat as in
+the list, and its speech bubble with the project and the task name.
+
+| Notification | Cat | Bubble |
 |---|---|---|
-| `lang` | `fr` | langue du chat et de la status line : `fr` ou `en` |
-| `coat` | `ginger` | pelage : `ginger`, `grey`, `black`, `cream`, `brown` ou `blue` |
-| `warn` | `50` | usage (%) à partir duquel la jauge passe au jaune |
-| `alert` | `80` | usage (%) à partir duquel le chat miaule |
-| `critical` | `95` | usage (%) à partir duquel le chat panique |
-| `statusline` | `true` | `false` : la status line enregistre les chiffres sans rien afficher |
+| The agent finished | jumps for joy | green border, "done" |
+| The agent needs you | meows | orange border, "needs you" |
 
-Le mod relit ce fichier à son démarrage : relancer Herdr, ou changer de layout
-et revenir, après une modification.
+As with the original notification, a click shows the agent and closes it,
+and it goes away by itself after a few seconds. Other notifications (usage
+cat, Herdr) keep their look.
 
-## agents-cats : un chat par agent
+The mod is chosen by the `"toast"` key of the `main-usage-cat` layout.
 
-Copie du mod `agents` de Herdr (la liste des agents de la barre latérale) où
-chaque agent Claude Code a pour icône un chat. Chaque
-agent a son pelage, fixe pour une même adresse de terminal ; ses sous-agents
-sont des chatons. Les autres agents (Codex, etc.) gardent leur icône.
+## Settings: `config.json`
 
-| État Herdr | Chat |
-|---|---|
-| `working` | tape sur son ordinateur |
-| `blocked` (besoin de toi) | miaule |
-| `done` | saute de joie |
-| `idle` | assis ; endormi après 3 minutes sans activité (sauf l'agent affiché) |
+`install.py` creates `config.json` from `config.example.json`. This file
+belongs to the machine and is ignored by git: changing it does not block
+updates.
 
-Herdr ne distingue pas « réfléchit » de « travaille » : pas de crêpes ici.
+| Key | Default | Meaning |
+|---|---|---|
+| `lang` | `fr` | language of the cats, notifications and status line: `fr` or `en` |
+| `coat` | `ginger` | coat of the usage cat: `ginger`, `grey`, `black`, `cream`, `brown` or `blue` |
+| `warn` | `50` | usage (%) from which the gauge turns yellow |
+| `alert` | `80` | usage (%) from which the cat meows |
+| `critical` | `95` | usage (%) from which the cat panics |
+| `statusline` | `true` | `false`: the status line saves the figures without printing anything |
 
-Le mod part de la version 0.1.15 du mod `agents`, gardée pour comparaison dans
-`agents-cats/upstream-agents-0.1.15.js.txt`. Les modifications sont marquées
-`agents-cats` dans `main.js`. Pour suivre une nouvelle version de Herdr :
-comparer ce fichier au nouveau `~/.config/herdr-app/mods/agents/main.js`, puis
-reporter les modifications.
+The mods read this file when they start: switch to another layout and back
+(`ctrl-shift-l`), or restart Herdr, after a change.
 
-## Fichiers
-
-| Chemin | Rôle |
-|---|---|
-| `usage-cat/main.js` | le mod (gpui-kit) |
-| `usage-cat/mod.json` | déclaration du mod |
-| `usage-cat/sprites/` | images animées générées |
-| `agents-cats/main.js` | liste des agents avec les chats |
-| `agents-cats/sprites/` | images animées des chats d'agents |
-| `tools/drawings.py` | dessins et couleurs des chats (texte, un caractère par pixel) |
-| `tools/make_sprites.py` | génération des images des deux mods (Pillow) |
-| `statusline.py` | status line de Claude Code, écrit les chiffres d'usage |
-| `updates.py` | vérification et mise à jour depuis les releases GitHub |
-| `config.example.json` | réglages par défaut, copiés en `config.json` (local) |
-| `install.py` | installation dans Herdr et Claude Code |
-
-## Installation
+## Install
 
 ```bash
+git clone https://github.com/MmeOokamy/herdr-always-need-cats.git
+cd herdr-always-need-cats
 python3 install.py
 ```
 
-Prérequis : Herdr, Python 3.9+, et Pillow pour régénérer les images
-(`pip install pillow` ; les images générées sont déjà dans le dossier).
+Requirements: Herdr, Python 3.9+. Pillow is only needed to generate the
+images again (`pip install pillow`): they are already in the repository.
 
-Le script :
+The script:
 
-1. génère les images si `usage-cat/sprites/` est vide ;
-2. crée les liens `~/.config/herdr-app/mods/usage-cat` et `agents-cats` vers
-   les dossiers d'ici (les modifications sont prises en compte à chaud) ;
-3. vérifie les mods (`herdr-app check`) ;
-4. crée le layout `main-usage-cat`, copie du layout `main` de Herdr (qui
-   n'est pas modifiable), y ajoute le bloc du chat (112 px de haut) entre
-   `spaces` et `agents` dans la barre latérale, remplace la liste des agents
-   par `agents-cats`, et l'affiche ;
-5. déclare `statusline.py` comme status line de Claude Code
-   (`~/.claude/settings.json`), sauf si une autre status line est déjà en
-   place : elle est gardée, et le script le signale. `--statusline` la
-   remplace.
+1. creates `config.json` from `config.example.json` when it does not exist;
+2. generates the images when they are missing;
+3. links `~/.config/herdr-app/mods/usage-cat`, `agents-cats` and
+   `toast-cats` to the folders of the clone, and checks them
+   (`herdr-app check`);
+4. creates the `main-usage-cat` layout, a copy of the Herdr `main` layout
+   (which cannot be edited): the usage cat block (112 px high) between
+   `spaces` and `agents`, the agents list replaced by `agents-cats`,
+   notifications shown by `toast-cats`; and shows it;
+5. sets `statusline.py` as the Claude Code status line
+   (`~/.claude/settings.json`), unless another status line is already set:
+   it is kept, and the script says so. `--statusline` replaces it.
 
-`ctrl-shift-l` fait passer d'un layout à l'autre.
+The script can run again without harm. `ctrl-shift-l` switches layouts.
 
-Après une modification de `tools/drawings.py` :
+Herdr reloads a mod only when the layout changes. After editing a mod,
+switch to another layout and back, or run `python3 install.py` again.
+
+After editing `tools/drawings.py`:
 
 ```bash
 python3 tools/make_sprites.py
 ```
 
-## Mises à jour
+## Updates
 
-Le projet se met à jour depuis le clone git avec lequel il a été installé.
-Seules les releases sont proposées, c'est-à-dire les tags `vX.Y.Z` publiés sur
-GitHub. Ce qui est fusionné dans `main` entre deux releases attend la suivante.
+The project updates itself from the git clone it was installed with. Only
+releases are offered: the `vX.Y.Z` tags published on GitHub. What is merged
+on `main` between two releases waits for the next one.
 
-- **Dans Herdr** : une fois par jour, le chat d'usage vérifie s'il existe une
-  nouvelle version. S'il y en a une, il affiche « Mise à jour X.Y.Z
-  disponible » sous les jauges (une étiquette « MAJ » sous le chat quand la
-  barre latérale est repliée) et envoie une notification. Un clic sur la
-  ligne, l'étiquette ou la notification lance la mise à jour, puis une
-  notification en donne le résultat.
-- **Dans un terminal** :
+- **In Herdr**: once a day, the usage cat checks for a new version. When
+  there is one, it shows "Update X.Y.Z available" under the gauges (an "UPD"
+  label under the cat when the sidebar is collapsed) and posts a
+  notification. A click on the line, the label or the notification runs the
+  update, then a notification tells the result.
+- **In a terminal**:
 
   ```bash
-  python3 updates.py           # vérifie, puis met à jour s'il y a une nouvelle version
-  python3 updates.py --check   # vérifie seulement
+  python3 updates.py           # check, then update if there is a new version
+  python3 updates.py --check   # check only
   ```
 
-Une mise à jour n'écrase rien : c'est une avance rapide du clone jusqu'à la
-dernière release (`git merge --ff-only`). Avec des fichiers suivis modifiés
-ou des commits locaux, elle s'arrête et le chat affiche « Mise à jour
-bloquée » : il faut alors la faire à la main. Après la mise à jour,
-`install.py` est relancé pour appliquer un changement de layout ; Herdr
-recharge de lui-même les mods dont les fichiers ont changé.
+An update never overwrites anything: it fast-forwards the clone to the latest
+release (`git merge --ff-only`). With modified tracked files or local
+commits, it stops and the cat shows "Update blocked": update by hand then.
+After the update, `install.py` runs again: it applies layout changes and
+reloads the mods.
 
-L'état de la dernière vérification est gardé dans
+The state of the last check is kept in
 `~/.cache/herdr-always-need-cats/updates.json`.
 
-### Publier une version
+### Publishing a release
 
-Depuis `main` à jour :
+From an up to date `main`:
 
 ```bash
 git tag -a v1.1.0 -m "v1.1.0"
 git push origin v1.1.0
 ```
 
-Puis créer la release sur GitHub à partir du tag (Releases, Draft a new
-release). Les installations la voient à leur prochaine vérification.
+Then create the release on GitHub from the tag (Releases, Draft a new
+release). Installations see it at their next check.
 
-## Désinstallation
+## Uninstall
 
 ```bash
 python3 install.py --uninstall
 ```
 
-Revient au layout `main`, supprime `main-usage-cat` et les liens des mods, et
-retire la status line de Claude Code si c'est celle d'ici.
+Goes back to the `main` layout, deletes `main-usage-cat` and the mod links,
+and removes the Claude Code status line when it is the project's one.
 
-## Limites
+## Files
 
-- `main-usage-cat` est une copie : les évolutions du layout `main` livrées
-  par les mises à jour de Herdr n'y arrivent pas. Pour repartir d'une copie à
-  jour : désinstaller puis réinstaller. De même, `agents-cats` ne suit pas
-  les évolutions du mod `agents`.
-- Claude Code n'a qu'une status line. Le fichier
-  `~/.cache/usage-cat/state.json` a le même format que celui de
-  `we-always-need-cats` (chats de bureau) : si ce projet est aussi installé,
-  sa status line alimente aussi le chat de Herdr, et `install.py` la garde.
+| Path | Role |
+|---|---|
+| `usage-cat/` | the usage cat (gpui-kit mod and its images) |
+| `agents-cats/` | the agents list with the cats (mod and images) |
+| `toast-cats/` | the notifications with the cats (mod) |
+| `tools/drawings.py` | drawings and colors of the cats (text, one character per pixel) |
+| `tools/make_sprites.py` | image generation (Pillow) |
+| `statusline.py` | Claude Code status line, writes the usage figures |
+| `updates.py` | checks and updates from the GitHub releases |
+| `config.example.json` | default settings, copied to `config.json` (local) |
+| `install.py` | install into Herdr and Claude Code |
 
-## Licence
+## Limits
 
-MIT (voir `LICENSE`), sauf `agents-cats/main.js` et
-`agents-cats/upstream-agents-0.1.15.js.txt` : ils reprennent le mod `agents`
-de Herdr, sous licence Apache 2.0 (`agents-cats/LICENSE-herdr.txt`). Les
-modifications apportées sont marquées `agents-cats` dans `main.js`.
+- `main-usage-cat` is a copy: changes to the `main` layout shipped by Herdr
+  updates do not reach it. To start again from an up to date copy: uninstall,
+  then install.
+- `agents-cats` and `toast-cats` start from the Herdr 0.1.15 `agents` and
+  `toast` mods, kept for comparison (`upstream-*.js.txt`). They do not follow
+  their changes: for a new Herdr version, compare these files with the new
+  `~/.config/herdr-app/mods/agents/main.js` and `toast/main.js`, then carry
+  the changes over (marked `agents-cats` in the first one).
+- Claude Code has a single status line. The file
+  `~/.cache/usage-cat/state.json` has the same format as the one of
+  [we-always-need-cats](https://github.com/MmeOokamy/we-always-need-cats)
+  (desktop cats): when that project is installed too, its status line feeds
+  the Herdr cat as well, and `install.py` keeps it.
+
+## License
+
+MIT (see `LICENSE`), except `agents-cats/main.js`, `toast-cats/main.js` and
+the `upstream-*.js.txt` files: they build on the Herdr `agents` and `toast`
+mods, under the Apache 2.0 license (`agents-cats/LICENSE-herdr.txt`), with
+the changes described above.

@@ -172,7 +172,7 @@ def update():
     if reason:
         raise UpdateError(reason)
     git("merge", "--ff-only", "--quiet", state["latest"])
-    save_state(dict(state, version=state["latest"], since=0, behind=0, changes=[]))
+    save_state(dict(state, version=state["latest"], since=0, behind=0, changes=[], updated=time.time()))
     reinstall()
     return state["changes"]
 

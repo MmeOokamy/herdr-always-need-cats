@@ -2,11 +2,12 @@
 """Installe les chats dans Herdr.
 
 1. Génère les images animées (tools/make_sprites.py) si elles manquent.
-2. Relie les mods usage-cat et agents-cats dans ~/.config/herdr-app/mods
+2. Relie les mods usage-cat, agents-cats et toast-cats dans ~/.config/herdr-app/mods
    (liens symboliques : une modification ici est prise en compte à chaud).
 3. Crée le layout « main-usage-cat » : copie du layout Herdr « main » (non
    modifiable) avec le chat d'usage dans la barre latérale, entre Spaces et
-   Agents, et la liste des agents remplacée par agents-cats ; et l'affiche.
+   Agents, la liste des agents remplacée par agents-cats et les
+   notifications montrées par toast-cats ; et l'affiche.
 4. Déclare statusline.py comme status line de Claude Code, si aucune autre
    n'est déjà installée (--statusline pour remplacer celle en place).
 
@@ -23,7 +24,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HERDR = os.path.join(os.path.expanduser("~"), ".config", "herdr-app")
-MODS = ("usage-cat", "agents-cats")
+MODS = ("usage-cat", "agents-cats", "toast-cats")
 LAYOUT = "main-usage-cat"
 LAYOUT_FILE = os.path.join(HERDR, "layouts", f"{LAYOUT}.json")
 FLOAT_ID = "usage-cat"  # ancienne version : bloc flottant
@@ -118,7 +119,7 @@ def install(replace_statusline):
         print(f"Réglages : {CONFIG}")
 
     missing = [
-        mod for mod in MODS
+        mod for mod in ("usage-cat", "agents-cats")  # les mods qui ont des images
         if not os.path.isdir(os.path.join(HERE, mod, "sprites")) or not os.listdir(os.path.join(HERE, mod, "sprites"))
     ]
     if missing:
@@ -160,11 +161,20 @@ def install(replace_statusline):
     agents = find(layout, "agents")
     if agents is not None:
         agents["content"]["mod"] = "agents-cats"
+    layout["toast"] = "toast-cats"  # clé de la racine du layout
     temporary = LAYOUT_FILE + ".tmp"
     with open(temporary, "w", encoding="utf-8") as f:
         json.dump(layout, f, indent=2, ensure_ascii=False)
         f.write("\n")
     os.replace(temporary, LAYOUT_FILE)
+    # Herdr ne recharge un mod qu'au changement de layout : passer par main
+    # quand le layout est déjà affiché, pour charger les nouvelles versions.
+    try:
+        shown = json.loads(herdr("status")).get("layout")
+    except ValueError:
+        shown = None
+    if shown == LAYOUT:
+        herdr("do", "layout.switch", json.dumps({"name": "main"}))
     herdr("do", "layout.switch", json.dumps({"name": LAYOUT}))
     print(f"Layout affiché : {LAYOUT} (ctrl-shift-l pour changer de layout)")
     install_statusline(replace_statusline)

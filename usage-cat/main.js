@@ -13,7 +13,7 @@
 
 import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { exec, home, nextCommand, notify, props, readTextFile, theme } from "herdr";
+import { exec, home, nextCommand, notify, props, readTextFile, setShared, shared, theme } from "herdr";
 
 const WINDOWS = ["five_hour", "seven_day"];
 const LEVELS = ["none", "ok", "warn", "alert", "critical", "full"];
@@ -175,7 +175,23 @@ export default class UsageCat extends View {
       return;
     }
     this.announce();
+    this.announceUpdated();
     if (JSON.stringify(this.updates) !== before) cx.notify();
+  }
+
+  // Une mise à jour réussie relance install.py, qui recharge le layout : la
+  // copie du mod qui l'a lancée disparaît. Celle qui la remplace annonce le
+  // résultat, une seule fois (valeur partagée entre les copies du mod).
+  announceUpdated() {
+    const updated = this.updates.updated;
+    if (!updated || Date.now() / 1000 - updated > 300) return;
+    if (shared("usage-cat.updated") === updated) return;
+    setShared("usage-cat.updated", updated);
+    notify({
+      title: this.text.update_title,
+      body: this.text.update_done(String(this.updates.version ?? "").replace(/^v/, "")),
+      level: "success",
+    });
   }
 
   // Une notification par nouvelle version ; un clic dessus met à jour.
@@ -196,7 +212,6 @@ export default class UsageCat extends View {
     const root = this.root();
     if (!root || this.updating) return;
     if (what === "update" && !this.updateAvailable()) return;
-    const version = this.latest();
     const target = this.updates.latest;
     this.updating = what;
     cx.notify();
@@ -212,12 +227,16 @@ export default class UsageCat extends View {
     if (what === "update") {
       // Réussie si le clone est maintenant sur la version annoncée.
       const ok = result.code === 0 && this.updates.version === target;
-      const lines = `${result.stderr}\n${result.stdout}`.trim().split("\n");
-      notify({
-        title: this.text.update_title,
-        body: ok ? this.text.update_done(version) : this.text.update_failed(this.updates.error ?? lines[lines.length - 1]),
-        level: ok ? "success" : "error",
-      });
+      if (ok) {
+        this.announceUpdated();
+      } else {
+        const lines = `${result.stderr}\n${result.stdout}`.trim().split("\n");
+        notify({
+          title: this.text.update_title,
+          body: this.text.update_failed(this.updates.error ?? lines[lines.length - 1]),
+          level: "error",
+        });
+      }
     } else {
       this.announce();
     }
