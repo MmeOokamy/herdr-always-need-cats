@@ -23,7 +23,7 @@ limites d'usage du compte Claude Code :
 
 | Usage (session ou semaine) | Comportement du chat |
 |---|---|
-| Moins de 50 % | Assis, jauge verte ; tape sur son ordinateur quand Claude consomme |
+| Moins de 50 % | Assis, jauge verte ; s'occupe quand Claude consomme (voir plus bas) |
 | 50 % et plus | Pareil, jauge jaune |
 | 80 % et plus | Miaule, point d'exclamation orange, notification Herdr |
 | 95 % et plus | Miaule plus vite, en rouge, notification Herdr |
@@ -51,12 +51,17 @@ autres agents (Codex, etc.) gardent leur icône.
 
 | État Herdr | Chat |
 |---|---|
-| `working` | tape sur son ordinateur |
+| `working` | s'occupe : ordinateur, crêpes, pelote, Rubik's cube, à tour de rôle |
 | `blocked` (besoin de toi) | miaule |
 | `done` | saute de joie |
 | `idle` | assis ; endormi après 3 minutes sans activité (sauf l'agent affiché) |
 
-Herdr ne distingue pas « réfléchit » de « travaille » : pas de crêpes ici.
+Un chat occupé (un agent au travail, ou le chat d'usage pendant que Claude
+consomme) change d'occupation toutes les 3 secondes environ, comme les chats de
+bureau de we-always-need-cats quand Claude réfléchit : il tape sur son
+ordinateur, fait sauter une crêpe, joue avec une pelote de laine, puis résout
+un Rubik's cube. Chaque pelage commence le cycle par une occupation
+différente : deux agents voisins ne font pas tous la même chose.
 
 ## toast-cats : les notifications d'agent
 
