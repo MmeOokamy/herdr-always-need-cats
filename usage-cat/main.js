@@ -5,11 +5,15 @@
 // Les images animées sont générées par tools/make_sprites.py.
 //
 // Bloc de la barre latérale de Herdr, entre Spaces et Agents.
-// props (dans le layout) : { config: chemin du config.json de herdr-always-need-cats }
+// props (dans le layout) : { config: chemin du config.json, root: dossier du clone }
+//
+// Mises à jour : une fois par jour, le mod lance `updates.py --check` ; quand
+// une nouvelle version est publiée, il le signale (ligne cliquable et
+// notification), et un clic lance `updates.py`, qui met le clone à jour.
 
 import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { home, notify, props, readTextFile, theme } from "herdr";
+import { exec, home, nextCommand, notify, props, readTextFile, theme } from "herdr";
 
 const WINDOWS = ["five_hour", "seven_day"];
 const LEVELS = ["none", "ok", "warn", "alert", "critical", "full"];
@@ -29,6 +33,10 @@ const COATS = ["ginger", "grey", "black", "cream", "brown", "blue"];
 const ACTIVE_SECONDS = 20; // le chat tape après l'arrivée de chiffres frais
 const CELEBRATION_SECONDS = 30; // saute de joie après un reset
 const POLL_MS = 2000;
+
+const UPDATE_POLL_MS = 60 * 1000; // relecture de l'état des mises à jour
+const UPDATE_EVERY = 24 * 3600; // vérification automatique, en secondes
+const UPDATE_RETRY = 3600; // après une vérification en échec (hors ligne...)
 
 const CAT_W = 66; // taille affichée de l'image (générée en 176 x 200)
 const CAT_H = 75;
@@ -50,6 +58,15 @@ const TEXTS = {
     reset: (w, d) => `reset ${w} (${d})`,
     back: (w, d) => `reprise ${w} (${d})`,
     renewed_short: "réinitialisée",
+    update_title: "herdr-always-need-cats",
+    update_available: (v) => `Mise à jour ${v} disponible`,
+    update_changes: (n) => `${n} changement${n > 1 ? "s" : ""} : cliquer pour mettre à jour`,
+    update_short: "MAJ",
+    update_blocked: (why) => `Mise à jour ${why}`,
+    blocked: { dirty: "bloquée : modifications locales", ahead: "bloquée : commits locaux" },
+    updating: "Mise à jour…",
+    update_done: (v) => `Version ${v} installée.`,
+    update_failed: (e) => `Mise à jour impossible : ${e}`,
   },
   en: {
     title: "Claude Code usage",
@@ -67,6 +84,15 @@ const TEXTS = {
     reset: (w, d) => `resets ${w} (${d})`,
     back: (w, d) => `back ${w} (${d})`,
     renewed_short: "reset",
+    update_title: "herdr-always-need-cats",
+    update_available: (v) => `Update ${v} available`,
+    update_changes: (n) => `${n} change${n > 1 ? "s" : ""}: click to update`,
+    update_short: "UPD",
+    update_blocked: (why) => `Update ${why}`,
+    blocked: { dirty: "blocked: local changes", ahead: "blocked: local commits" },
+    updating: "Updating…",
+    update_done: (v) => `Version ${v} installed.`,
+    update_failed: (e) => `Update failed: ${e}`,
   },
 };
 
@@ -88,6 +114,114 @@ export default class UsageCat extends View {
     cx.timer.every(POLL_MS, (cx) => {
       cx.spawn(async (cx) => this.poll(cx, false));
     });
+
+    this.updates = {}; // état écrit par updates.py
+    this.updating = null; // "check" ou "update" pendant que updates.py tourne
+    this.lastCheck = 0; // dernière vérification lancée d'ici
+    this.notified = null; // version déjà signalée par une notification
+    cx.spawn(async (cx) => this.pollUpdates(cx));
+    cx.timer.every(UPDATE_POLL_MS, (cx) => {
+      cx.spawn(async (cx) => this.pollUpdates(cx));
+    });
+    // Clic sur la notification : run("usage-cat.update")
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const command = await nextCommand();
+        if (command === "update") await this.runUpdates(cx, "update");
+      }
+    });
+  }
+
+  // --- Mises à jour --------------------------------------------------------
+
+  root() {
+    const p = props() ?? {};
+    return p.root ?? (p.config ? p.config.replace(/\/[^/]*$/, "") : null);
+  }
+
+  async readUpdates() {
+    try {
+      const data = JSON.parse((await readTextFile(`${home()}/.cache/herdr-always-need-cats/updates.json`)) ?? "{}");
+      this.updates = data && typeof data === "object" ? data : {};
+    } catch (_e) {
+      this.updates = {};
+    }
+  }
+
+  updateAvailable() {
+    const u = this.updates;
+    return Boolean(u.behind) && !u.dirty && !u.ahead && !u.error;
+  }
+
+  updateBlocked() {
+    const u = this.updates;
+    if (!u.behind || u.error) return null;
+    return u.dirty ? "dirty" : u.ahead ? "ahead" : null;
+  }
+
+  latest() {
+    return String(this.updates.latest ?? "").replace(/^v/, "");
+  }
+
+  async pollUpdates(cx) {
+    if (this.updating) return;
+    const before = JSON.stringify(this.updates);
+    await this.readUpdates();
+    const now = Date.now() / 1000;
+    const due = now - (this.updates.checked ?? 0) > UPDATE_EVERY;
+    if (due && now - this.lastCheck > UPDATE_RETRY) {
+      this.lastCheck = now;
+      await this.runUpdates(cx, "check");
+      return;
+    }
+    this.announce();
+    if (JSON.stringify(this.updates) !== before) cx.notify();
+  }
+
+  // Une notification par nouvelle version ; un clic dessus met à jour.
+  announce() {
+    if (!this.updateAvailable() || this.notified === this.updates.latest) return;
+    this.notified = this.updates.latest;
+    const count = (this.updates.changes ?? []).length || this.updates.behind;
+    notify({
+      title: this.text.update_available(this.latest()),
+      body: this.text.update_changes(count),
+      level: "info",
+      action: { name: "usage-cat.update" },
+    });
+  }
+
+  // updates.py --check, ou updates.py (met à jour puis relance install.py).
+  async runUpdates(cx, what) {
+    const root = this.root();
+    if (!root || this.updating) return;
+    if (what === "update" && !this.updateAvailable()) return;
+    const version = this.latest();
+    const target = this.updates.latest;
+    this.updating = what;
+    cx.notify();
+    let result = null;
+    try {
+      const args = [`${root}/updates.py`, ...(what === "check" ? ["--check"] : [])];
+      result = await exec("python3", args, { cwd: root, timeout: 300000 });
+    } catch (e) {
+      result = { code: 1, stdout: "", stderr: String(e) };
+    }
+    this.updating = null;
+    await this.readUpdates();
+    if (what === "update") {
+      // Réussie si le clone est maintenant sur la version annoncée.
+      const ok = result.code === 0 && this.updates.version === target;
+      const lines = `${result.stderr}\n${result.stdout}`.trim().split("\n");
+      notify({
+        title: this.text.update_title,
+        body: ok ? this.text.update_done(version) : this.text.update_failed(this.updates.error ?? lines[lines.length - 1]),
+        level: ok ? "success" : "error",
+      });
+    } else {
+      this.announce();
+    }
+    cx.notify();
   }
 
   async loadSettings() {
@@ -234,6 +368,30 @@ export default class UsageCat extends View {
           .child(div().h_full().w(fill).bg(LEVEL_COLOR[this.levelOf(pct)]))));
   }
 
+  // Ligne des mises à jour, sous les fenêtres d'usage (null : rien à dire).
+  updateLine(t) {
+    if (this.updating === "update") {
+      return div().truncate().font_semibold().text_color(t.foreground).child(this.text.updating);
+    }
+    const blocked = this.updateBlocked();
+    if (blocked) {
+      return div().truncate().text_color(t.dim).child(this.text.update_blocked(this.text.blocked[blocked]));
+    }
+    if (!this.updateAvailable()) return null;
+    const color = t.accent ?? LEVEL_COLOR.ok;
+    const count = (this.updates.changes ?? []).length || this.updates.behind;
+    // Une seule ligne (le bloc a une hauteur fixe) ; le détail en infobulle.
+    return h_flex()
+      .id("usage-cat-update")
+      .gap(6)
+      .items_center()
+      .cursor_pointer()
+      .tooltip(this.text.update_changes(count))
+      .on_click((_e, cx) => cx.spawn(async (cx) => this.runUpdates(cx, "update")))
+      .child(div().size(7).flex_none().rounded(4).bg(color))
+      .child(div().truncate().font_semibold().text_color(color).child(this.text.update_available(this.latest())));
+  }
+
   render() {
     const t = theme();
     const now = Date.now() / 1000;
@@ -244,9 +402,18 @@ export default class UsageCat extends View {
     const lines = this.lines(now);
     const title = animation === "done" ? this.text.renewed_title : this.text.title;
     const wide = (this.width ?? 268) >= 200;
+    const available = this.updateAvailable();
     const cat = v_flex().gap(4).flex_none()
       .child(image(sprite).w(CAT_W).h(CAT_H))
-      .child(v_flex().gap(2).child(this.bar(session, 10)).child(this.bar(week, 6)));
+      .child(v_flex().gap(2).child(this.bar(session, 10)).child(this.bar(week, 6)))
+      // Barre latérale repliée : le texte est masqué, une étiquette le remplace.
+      .when(!wide && (available || this.updating === "update"), (el) => el.child(div()
+        .id("usage-cat-update-short")
+        .w(CAT_W).rounded(4).bg(t.accent ?? LEVEL_COLOR.ok).text_color(t.accent_foreground ?? CREAM)
+        .text_size(10).font_semibold().text_center()
+        .when(available, (b) => b.cursor_pointer().on_click((_e, cx) => cx.spawn(async (cx) => this.runUpdates(cx, "update"))))
+        .child(this.updating === "update" ? "..." : this.text.update_short)));
+    const update = this.updateLine(t);
     const info = v_flex().flex_1().min_w(0).gap(6).text_size(11.8).text_color(t.muted)
       .child(div().font_semibold().truncate().text_color(LEVELS.indexOf(this.level) >= 3 ? LEVEL_COLOR[this.level] : t.foreground).child(title))
       .when(lines.length === 0, (el) => el.child(div().text_color(t.dim).child(this.text.waiting)))
@@ -254,7 +421,8 @@ export default class UsageCat extends View {
         .child(h_flex().gap(6).items_center()
           .child(div().size(7).rounded(4).bg(LEVEL_COLOR[level]))
           .child(div().font_semibold().text_color(t.foreground).child(head)))
-        .child(div().truncate().text_color(t.dim).child(detail))));
+        .child(div().truncate().text_color(t.dim).child(detail))))
+      .when(Boolean(update), (el) => el.child(update));
     return h_flex().id("usage-cat").size_full().px(12).py(6).gap(12).items_center()
       .border_t(1).border_b(1).border_color(t.border)
       .on_size_change((size, cx) => {

@@ -17,6 +17,7 @@ Usage : python3 install.py [--statusline]
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -28,7 +29,8 @@ LAYOUT_FILE = os.path.join(HERDR, "layouts", f"{LAYOUT}.json")
 FLOAT_ID = "usage-cat"  # ancienne version : bloc flottant
 BLOCK_ID = "usage-cat"
 BLOCK_HEIGHT = 112
-CONFIG = os.path.join(HERE, "config.json")
+CONFIG = os.path.join(HERE, "config.json")  # local, ignoré par git
+CONFIG_EXAMPLE = os.path.join(HERE, "config.example.json")
 STATUSLINE = os.path.join(HERE, "statusline.py")
 CLAUDE_SETTINGS = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
 
@@ -111,6 +113,10 @@ def uninstall_statusline():
 
 
 def install(replace_statusline):
+    if not os.path.exists(CONFIG):
+        shutil.copyfile(CONFIG_EXAMPLE, CONFIG)
+        print(f"Réglages : {CONFIG}")
+
     missing = [
         mod for mod in MODS
         if not os.path.isdir(os.path.join(HERE, mod, "sprites")) or not os.listdir(os.path.join(HERE, mod, "sprites"))
@@ -148,7 +154,7 @@ def install(replace_statusline):
         "id": BLOCK_ID,
         "type": "block",
         "size": {"px": BLOCK_HEIGHT},
-        "content": {"mod": "usage-cat", "props": {"config": CONFIG}},
+        "content": {"mod": "usage-cat", "props": {"config": CONFIG, "root": HERE}},
     })
     lists["children"] = children
     agents = find(layout, "agents")

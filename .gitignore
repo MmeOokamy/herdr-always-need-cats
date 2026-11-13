@@ -10,3 +10,6 @@ venv/
 
 # Déclarations écrites par gpui-shell à chaque lancement
 gpui-kit.d.ts
+
+# Réglages locaux (copie de config.example.json faite par install.py)
+config.json

@@ -30,11 +30,16 @@ Un chat dans la barre latérale de Herdr, entre Spaces et Agents. Il suit les li
   Le mod relit ce fichier toutes les 2 secondes.
 - Langue, pelage et seuils sont lus dans `config.json` (`lang`, `coat`,
   `warn`, `alert`, `critical`) au démarrage du mod.
+- Il signale aussi les mises à jour du projet (voir plus bas).
 - Les animations sont des WebP animés, joués nativement par Herdr (pas de
   redessin par timer). Ils sont générés à partir de `tools/drawings.py` par
   `tools/make_sprites.py` : un fichier par pelage, animation et niveau.
 
 ### Réglages : `config.json`
+
+`install.py` crée `config.json` à partir de `config.example.json`. Ce fichier
+est propre à la machine et ignoré par git : le modifier ne bloque pas les
+mises à jour.
 
 | Clé | Défaut | Rôle |
 |---|---|---|
@@ -82,7 +87,8 @@ reporter les modifications.
 | `tools/drawings.py` | dessins et couleurs des chats (texte, un caractère par pixel) |
 | `tools/make_sprites.py` | génération des images des deux mods (Pillow) |
 | `statusline.py` | status line de Claude Code, écrit les chiffres d'usage |
-| `config.json` | réglages du chat d'usage |
+| `updates.py` | vérification et mise à jour depuis les releases GitHub |
+| `config.example.json` | réglages par défaut, copiés en `config.json` (local) |
 | `install.py` | installation dans Herdr et Claude Code |
 
 ## Installation
@@ -116,6 +122,47 @@ Après une modification de `tools/drawings.py` :
 ```bash
 python3 tools/make_sprites.py
 ```
+
+## Mises à jour
+
+Le projet se met à jour depuis le clone git avec lequel il a été installé.
+Seules les releases sont proposées, c'est-à-dire les tags `vX.Y.Z` publiés sur
+GitHub. Ce qui est fusionné dans `main` entre deux releases attend la suivante.
+
+- **Dans Herdr** : une fois par jour, le chat d'usage vérifie s'il existe une
+  nouvelle version. S'il y en a une, il affiche « Mise à jour X.Y.Z
+  disponible » sous les jauges (une étiquette « MAJ » sous le chat quand la
+  barre latérale est repliée) et envoie une notification. Un clic sur la
+  ligne, l'étiquette ou la notification lance la mise à jour, puis une
+  notification en donne le résultat.
+- **Dans un terminal** :
+
+  ```bash
+  python3 updates.py           # vérifie, puis met à jour s'il y a une nouvelle version
+  python3 updates.py --check   # vérifie seulement
+  ```
+
+Une mise à jour n'écrase rien : c'est une avance rapide du clone jusqu'à la
+dernière release (`git merge --ff-only`). Avec des fichiers suivis modifiés
+ou des commits locaux, elle s'arrête et le chat affiche « Mise à jour
+bloquée » : il faut alors la faire à la main. Après la mise à jour,
+`install.py` est relancé pour appliquer un changement de layout ; Herdr
+recharge de lui-même les mods dont les fichiers ont changé.
+
+L'état de la dernière vérification est gardé dans
+`~/.cache/herdr-always-need-cats/updates.json`.
+
+### Publier une version
+
+Depuis `main` à jour :
+
+```bash
+git tag -a v1.1.0 -m "v1.1.0"
+git push origin v1.1.0
+```
+
+Puis créer la release sur GitHub à partir du tag (Releases, Draft a new
+release). Les installations la voient à leur prochaine vérification.
 
 ## Désinstallation
 
