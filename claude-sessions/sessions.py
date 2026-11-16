@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Liste les sessions Claude Code enregistrées, pour le mod claude-sessions.
+"""List saved Claude Code sessions, for the claude-sessions mod.
 
-Lit ~/.claude/projects/<projet>/<session>.jsonl (une session par fichier) et
-écrit sur la sortie standard un JSON :
+Reads ~/.claude/projects/<project>/<session>.jsonl (one session per file) and
+writes JSON to standard output:
 
     {"sessions": [{"id", "cwd", "project", "title", "prompt", "first",
                    "branch", "started", "updated", "prompts", "running",
                    "terminal"}, ...]}
 
-trié de la plus récente à la plus ancienne. Les fichiers font parfois
-plusieurs Mo : ce qui en est tiré est gardé dans
-~/.cache/herdr-always-need-cats/sessions.json, et un fichier n'est relu que
-si sa taille ou sa date a changé.
+sorted from newest to oldest. Files are sometimes several MB: what is
+extracted from them is kept in
+~/.cache/herdr-always-need-cats/sessions.json, and a file is only read again
+if its size or date has changed.
 
-Avec --delete <id> : met la session à la corbeille (gio trash ; sans gio,
-la supprime) : son fichier, son dossier (sous-agents), et ses dossiers
-~/.claude/file-history/<id> et ~/.claude/session-env/<id>. Refusé si la
-session est ouverte. Écrit {"deleted": [chemins]} ou {"error": "..."}.
+With --delete <id>: moves the session to the trash (gio trash; without gio,
+deletes it): its file, its folder (subagents), and its folders
+~/.claude/file-history/<id> and ~/.claude/session-env/<id>. Refused if the
+session is open. Writes {"deleted": [paths]} or {"error": "..."}.
 
-Une session est « running » quand un processus Claude Code vivant la déclare
-dans ~/.claude/sessions/<pid>.json ; « terminal » est alors l'adresse du
-terminal Herdr qui la porte (variable HC_TERMINAL_ID du processus), ou null
-si elle tourne hors de Herdr.
+A session is "running" when a live Claude Code process declares it in
+~/.claude/sessions/<pid>.json; "terminal" is then the address of the Herdr
+terminal that hosts it (the process's HC_TERMINAL_ID variable), or null if
+it runs outside Herdr.
 """
 
 import glob
@@ -41,8 +41,8 @@ SESSION_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 CACHE_VERSION = 1
 TEXT_MAX = 200
 
-# Messages utilisateur qui ne sont pas des demandes : commandes, rappels,
-# reprises automatiques.
+# User messages that are not prompts: commands, reminders, automatic
+# continuations.
 NOT_A_PROMPT = (
     "<command-", "<local-command", "<system-reminder", "<bash-", "<task-notification",
     "Caveat:", "[Request interrupted",
@@ -55,7 +55,7 @@ def short(text):
 
 
 def prompt_text(message):
-    """Texte tapé par la personne, ou None (résultat d'outil, commande...)."""
+    """Text typed by the user, or None (tool result, command...)."""
     content = (message or {}).get("content")
     if isinstance(content, list):
         parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
@@ -69,14 +69,14 @@ def prompt_text(message):
 
 
 def read_session(path):
-    """Ce qui sert à la liste, tiré d'un fichier de session."""
+    """What the list needs, extracted from a session file."""
     info = {
         "cwd": None, "branch": None, "ai_title": None, "name": None,
         "first": None, "prompt": None, "started": None, "updated": None, "prompts": 0,
     }
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
-            # Ne décoder que les lignes utiles : les autres peuvent être énormes.
+            # Only decode the useful lines: the others can be huge.
             if '"type":"user"' in line:
                 kind = "user"
             elif '"type":"ai-title"' in line:
@@ -140,7 +140,7 @@ def save_cache(files):
 
 
 def live_sessions():
-    """Sessions ouvertes : {id de session: adresse du terminal Herdr ou None}."""
+    """Open sessions: {session id: Herdr terminal address or None}."""
     live = {}
     for path in glob.glob(os.path.join(LIVE, "*.json")):
         try:
@@ -163,13 +163,13 @@ def live_sessions():
                     if item.startswith(b"HC_TERMINAL_ID="):
                         terminal = item.split(b"=", 1)[1].decode() or None
         except OSError:
-            pass  # hors Linux, ou processus d'un autre utilisateur
+            pass  # not on Linux, or another user's process
         live[session] = terminal
     return live
 
 
 def session_paths(session_id):
-    """Tout ce qui appartient à une session, parmi ce qui existe."""
+    """Everything that belongs to a session, among what exists."""
     paths = []
     for project in glob.glob(os.path.join(glob.escape(PROJECTS), "*")):
         paths += [os.path.join(project, session_id + ".jsonl"), os.path.join(project, session_id)]
@@ -230,7 +230,7 @@ def main():
     for path, entry in files.items():
         info = entry["info"]
         if not info["prompts"] or not info["cwd"]:
-            continue  # session vide (ouverte puis quittée)
+            continue  # empty session (opened then quit)
         session_id = os.path.splitext(os.path.basename(path))[0]
         sessions.append({
             "id": session_id,

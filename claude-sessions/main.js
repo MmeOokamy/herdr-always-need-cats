@@ -1,28 +1,27 @@
-// claude-sessions : toutes les sessions Claude Code enregistrées
-// (~/.claude/projects), de la plus récente à la plus ancienne, dans une
-// fenêtre ouverte par mod.open:claude-sessions (raccourci posé par
-// install.py). Taper pour filtrer, haut/bas et Entrée pour choisir, Echap
-// pour fermer.
+// claude-sessions: every saved Claude Code session (~/.claude/projects),
+// newest to oldest, in a window opened by mod.open:claude-sessions (shortcut
+// set up by install.py). Type to filter, up/down and Enter to choose, Escape
+// to close.
 //
-// Clic droit sur une session : menu (reprendre ou afficher, supprimer).
-// Supprimer demande confirmation, puis met la session à la corbeille
-// (sessions.py --delete) ; une session ouverte ne peut pas être supprimée.
+// Right-click on a session: menu (resume or show, delete).
+// Delete asks for confirmation, then moves the session to the trash
+// (sessions.py --delete); an open session cannot be deleted.
 //
-// Entrée sur une session :
-// - fermée : la reprend (claude --resume <id>) dans un nouvel onglet, dans
-//   l'espace Herdr de son dossier s'il y en a un, sinon dans un nouvel espace ;
-// - ouverte dans Herdr : affiche son agent ;
-// - ouverte hors de Herdr : rien (la reprendre ferait deux sessions sur le
-//   même historique), la ligne le dit.
+// Enter on a session:
+// - closed: resumes it (claude --resume <id>) in a new tab, in the Herdr
+//   space of its folder if there is one, otherwise in a new space;
+// - open in Herdr: shows its agent;
+// - open outside Herdr: nothing (resuming it would make two sessions on the
+//   same history), the row says so.
 //
-// La lecture des fichiers est faite par sessions.py (à côté, mis en cache).
+// Files are read by sessions.py (next to this file, with a cache).
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { appHome, checking, closeOverlay, exec, panes, props, readTextFile, run, settings, spaces, theme } from "herdr";
 
 const DIR = "mods/claude-sessions";
-// La fenêtre prend la taille de son contenu : la liste a une hauteur fixe.
+// The window takes the size of its content: the list has a fixed height.
 const ROW = 48;
 const LIST_MAX = 528;
 const MENU_WIDTH = 230;
@@ -108,25 +107,25 @@ function when(seconds, lang) {
 export default class ClaudeSessions extends View {
   init(_props, cx) {
     this.lang = "fr";
-    this.sessions = null; // null : en cours de lecture
+    this.sessions = null; // null: still reading
     this.error = null;
     this.filter = "";
     this.at = 0;
-    this.menu = null; // { s, x, y } : menu du clic droit
-    this.origin = null; // coin haut gauche de la fenêtre, en coordonnées de la fenêtre Herdr
-    this.confirm = null; // { s, busy, error } : confirmation de suppression
+    this.menu = null; // { s, x, y }: right-click menu
+    this.origin = null; // top-left corner of the window, in Herdr window coordinates
+    this.confirm = null; // { s, busy, error }: delete confirmation
     this.handle = cx.focus_handle();
     this.scroll = ScrollHandle.new();
-    this.input = null; // créé une fois la langue connue (texte d'aide)
+    this.input = null; // created once the language is known (placeholder text)
     cx.timer.after(600, () => this.input?.focus());
     cx.spawn(async (cx) => {
       try {
-        // Le dossier du mod est un lien vers le clone : config.json est à côté.
+        // The mod folder is a link to the clone: config.json sits next to it.
         const data = JSON.parse((await readTextFile(`${appHome()}/${DIR}/../config.json`)) ?? "{}");
         const lang = String(data?.lang ?? "fr").toLowerCase();
         if (TEXTS[lang]) this.lang = lang;
       } catch {
-        // pas de config : français
+        // no config: French
       }
       this.makeInput();
       cx.notify();
@@ -162,8 +161,8 @@ export default class ClaudeSessions extends View {
     closeOverlay(props().overlay);
   }
 
-  // Clic droit : la ligne note la session et le point, la racine (qui reçoit
-  // le même clic, avant ou après) donne son origine pour placer le menu.
+  // Right-click: the row records the session and the point, the root (which
+  // gets the same click, before or after) gives its origin to place the menu.
   placeMenu() {
     const m = this.menu;
     if (!m || m.x != null || !this.origin) return;
@@ -171,15 +170,15 @@ export default class ClaudeSessions extends View {
     const width = this.size?.width ?? 720;
     m.x = Math.max(4, Math.min((m.at.x - this.origin.x) / zoom, width - MENU_WIDTH - 4));
     const y = (m.at.y - this.origin.y) / zoom;
-    // La fenêtre coupe ce qui dépasse : sans place en dessous, le menu
-    // s'ouvre au-dessus du pointeur.
+    // The window clips anything that overflows: with no room below, the menu
+    // opens above the pointer.
     const height = this.size?.height ?? Infinity;
     const menu = this.menuHeight(m.s);
     m.y = y + menu + 4 > height ? Math.max(4, y - menu) : y;
   }
 
-  // Hauteur du menu (voir renderMenu) : marges 2 x 4, lignes de 30 séparées
-  // de 2, et la mention d'une session ouverte (environ 22).
+  // Menu height (see renderMenu): padding 2 x 4, rows of 30 with a gap of
+  // 2, and the note for an open session (about 22).
   menuHeight(s) {
     const items = s.running && !s.terminal ? 1 : 2;
     return 8 + items * 30 + (items - 1) * 2 + (s.running ? 24 : 0);
@@ -188,7 +187,7 @@ export default class ClaudeSessions extends View {
   askDelete(s) {
     this.menu = null;
     this.confirm = { s, busy: false, error: null };
-    this.handle.focus(); // Entrée et Echap vont à la confirmation, pas au filtre
+    this.handle.focus(); // Enter and Escape go to the confirmation, not the filter
   }
 
   cancelDelete() {
@@ -275,7 +274,7 @@ export default class ClaudeSessions extends View {
   choose(s, _cx) {
     if (!s) return;
     if (s.running) {
-      if (!s.terminal) return; // ouverte hors de Herdr : ne pas la dédoubler
+      if (!s.terminal) return; // open outside Herdr: do not duplicate it
       this.close();
       run("agent.focus", { terminal: s.terminal });
       return;
@@ -288,8 +287,8 @@ export default class ClaudeSessions extends View {
     else run("space.new", { folder: s.cwd, machine: "", argv, tab: name });
   }
 
-  // L'espace où reprendre : celui d'un terminal ouvert dans ce dossier, sinon
-  // celui dont les nouveaux terminaux démarrent là (sur cette machine).
+  // The space to resume in: the one with a terminal open in this folder,
+  // otherwise the one whose new terminals start there (on this machine).
   spaceFor(cwd) {
     const clean = (f) => (f ?? "").replace(/\/+$/, "");
     const local = spaces().filter((p) => !p.machine);

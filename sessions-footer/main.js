@@ -1,7 +1,7 @@
-// sessions-footer : le pied de la barre latérale (bloc sidebar-footer du
-// layout main-usage-cat), repris du mode footer du mod workspace-chrome de
-// Herdr 0.1.15, avec une ligne « sessions » sous Settings, qui ouvre la
-// liste des sessions Claude (mod claude-sessions).
+// sessions-footer: the sidebar footer (sidebar-footer block of the
+// main-usage-cat layout), taken from the footer mode of Herdr 0.1.15's
+// workspace-chrome mod, with a "sessions" row under Settings that opens the
+// list of Claude sessions (claude-sessions mod).
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
@@ -16,7 +16,7 @@ function find(node, id) {
   return null;
 }
 
-// Barre latérale repliée en rail : selon sa largeur, comme workspace-chrome.
+// Sidebar collapsed to a rail: depending on its width, like workspace-chrome.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
 
 export default class SessionsFooter extends View {

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Génère les images animées (WebP) du chat d'usage pour le mod Herdr.
+"""Generates the animated images (WebP) of the usage cat for the Herdr mod.
 
-Les dessins sont dans tools/drawings.py :
+The drawings are in tools/drawings.py:
 
-- chat d'usage (usage-cat/sprites) : tel que usage_cat.py le peint (chat,
-  symboles au-dessus, saut de joie), une image par pelage, animation et niveau ;
-- chats des agents (agents-cats/sprites) : le chat seul, sans symboles, une
-  image par pelage (chats et chatons) et animation.
+- usage cat (usage-cat/sprites): as usage_cat.py paints it (cat,
+  symbols above it, jump of joy), one image per coat, animation and level;
+- agent cats (agents-cats/sprites): the cat alone, without symbols, one
+  image per coat (cats and kittens) and animation.
 
-Usage : python3 tools/make_sprites.py
+Usage: python3 tools/make_sprites.py
 """
 
 import math
@@ -21,14 +21,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "usage-cat", "sprites")
 OUT_AGENTS = os.path.join(ROOT, "agents-cats", "sprites")
-# Animations des chats d'agents (état Herdr -> animation : voir agents-cats).
+# Agent cat animations (Herdr state -> animation: see agents-cats).
 AGENT_ANIMATIONS = ("idle", "work", "question", "done", "sleep")
-AGENT_SCREEN = "read"  # couleur de l'écran de l'ordinateur (bleu)
+AGENT_SCREEN = "read"  # color of the computer screen (blue)
 
 sys.path.insert(0, HERE)
-import drawings as sprites  # noqa: E402  (dessins et couleurs)
+import drawings as sprites  # noqa: E402  (drawings and colors)
 
-# Niveaux d'usage, du plus calme au pire, et leur couleur (jauges, écran).
+# Usage levels, from calmest to worst, and their color (gauges, screen).
 LEVELS = ("none", "ok", "warn", "alert", "critical", "full")
 LEVEL_COLOR = {
     "none": "#868E96",
@@ -39,10 +39,10 @@ LEVEL_COLOR = {
     "full": "#E03131",
 }
 
-# Grille de travail : 1 pixel du dessin = 2 unités (les petits symboles
-# font une demi-taille), 1 unité = UNIT pixels dans l'image produite.
+# Working grid: 1 drawing pixel = 2 units (the small symbols are
+# half-size), 1 unit = UNIT pixels in the output image.
 UNIT = 4
-SYMBOLS_H = 7  # place au-dessus du chat, en pixels du dessin
+SYMBOLS_H = 7  # space above the cat, in drawing pixels
 W = sprites.CELL_W
 H = SYMBOLS_H + sprites.CELL_H
 STAR = "#FFD43B"
@@ -50,20 +50,20 @@ ZZZ = "#FFFFFF"
 
 FPS = {"idle": 3, "question": 3, "panic": 6, "done": 4, "work": 5, "sleep": 1.5}
 FRAMES = dict(sprites.ANIMATIONS, panic=sprites.ANIMATIONS["question"])
-# Période des symboles, pour que l'animation boucle sans saut.
+# Period of the symbols, so that the animation loops without a jump.
 SYMBOL_PERIOD = {"work": 6, "done": 3, "sleep": 2, "question": 2, "panic": 2, "idle": 1}
 
-# Un chat qui travaille passe tour à tour, comme les chats de bureau qui
-# réfléchissent, de son ordinateur aux crêpes, à la pelote et au Rubik's cube
-# (TURN images chacun, à 5 images par seconde). Les images "work" contiennent
-# le cycle entier.
+# A working cat switches in turn, like the office cats that think,
+# from its computer to the crepes, the yarn ball and the Rubik's cube
+# (TURN frames each, at 5 frames per second). The "work" images hold
+# the whole cycle.
 TURNS = ("work", "think", "play", "cube")
-TURN = 16  # images par tour
+TURN = 16  # frames per turn
 OVERLAYS = {"play": sprites.YARN_PLAY, "cube": sprites.CUBE_SOLVE}
 
 
 def overlays(animation, index):
-    """Ce qui est dessiné par-dessus le chat : crêpe en l'air, pelote, cube."""
+    """What is drawn over the cat: crepe in the air, yarn ball, cube."""
     if animation == "think":
         flight = sprites.CREPE_FLIGHT[index % len(sprites.CREPE_FLIGHT)]
         return [flight] if flight else []
@@ -72,8 +72,8 @@ def overlays(animation, index):
 
 
 def working(index, start=0):
-    """(animation du tour, nom du dessin, objets par-dessus) de l'image index
-    du cycle de travail ; start décale le premier tour."""
+    """(turn animation, drawing name, objects drawn over it) of frame index
+    of the work cycle; start shifts the first turn."""
     turn = TURNS[(index // TURN + start) % len(TURNS)]
     i = index % TURN
     names = sprites.ANIMATIONS[turn]
@@ -82,14 +82,14 @@ def working(index, start=0):
 
 def rgba(color):
     color = color.lstrip("#")
-    if len(color) == 8:  # #AARRGGBB (format Qt)
+    if len(color) == 8:  # #AARRGGBB (Qt format)
         a, r, g, b = (int(color[i : i + 2], 16) for i in range(0, 8, 2))
         return (r, g, b, a)
     return tuple(int(color[i : i + 2], 16) for i in range(0, 6, 2)) + (255,)
 
 
 class Canvas:
-    """Image en unités de 1/2 pixel du dessin."""
+    """Image in units of 1/2 drawing pixel."""
 
     def __init__(self, w=W, h=H):
         self.w, self.h = w * 2, h * 2
@@ -102,7 +102,7 @@ class Canvas:
                     self.pixels[(x + dx, y + dy)] = color
 
     def sprite(self, lines, colors, left, top):
-        """Dessin avec son halo clair, en pixels du dessin (comme sprites.draw)."""
+        """Drawing with its light halo, in drawing pixels (like sprites.draw)."""
         filled = set()
         for j, line in enumerate(lines):
             for i, char in enumerate(line):
@@ -119,7 +119,7 @@ class Canvas:
                     self.put((left + i) * 2, (top + j) * 2, rgba(colors[char]))
 
     def symbol(self, name, x, y, color, size):
-        """Symbole en unités ; size = 2 (pleine taille) ou 1 (demi)."""
+        """Symbol in units; size = 2 (full size) or 1 (half)."""
         for j, line in enumerate(sprites.SYMBOLS[name]):
             for i, char in enumerate(line):
                 if char == "K":
@@ -133,7 +133,7 @@ class Canvas:
 
 
 def frame(coat, level, animation, index):
-    """Une image, comme UsageCat.paint (sans jauges ni bulle : faites par le mod)."""
+    """One image, like UsageCat.paint (without gauges or bubble: the mod draws them)."""
     even = index % 2 == 0
     color = LEVEL_COLOR[level]
     items = []
@@ -152,7 +152,7 @@ def frame(coat, level, animation, index):
     canvas.sprite(lines, colors, left, top)
     for item, column, line, _mirror in items:
         canvas.sprite(sprites.IMAGES[item], colors, left + column, top + line)
-    cat_top = SYMBOLS_H * 2  # en unités
+    cat_top = SYMBOLS_H * 2  # in units
     if animation == "sleep":
         canvas.symbol("z", (W - 5) * 2, cat_top + (3 if even else 2) * 2, ZZZ, 1)
         if even:
@@ -163,7 +163,7 @@ def frame(coat, level, animation, index):
         for i, (sx, sy) in enumerate(((1, -4), (15, -6), (9, -7))):
             if (index + i) % 3:
                 canvas.symbol("star", sx * 2, cat_top + sy * 2 + jump, STAR, 2)
-    elif animation == "work" and turn == "work":  # devant l'ordinateur
+    elif animation == "work" and turn == "work":  # in front of the computer
         for i in range(3):
             phase = (index + i * 2) % 6
             if phase < 5:
@@ -172,7 +172,7 @@ def frame(coat, level, animation, index):
 
 
 def agent_frame(coat, animation, index, start=0):
-    """Le chat seul, dans une case de la taille du dessin (+2 lignes pour le saut)."""
+    """The cat alone, in a cell the size of the drawing (+2 lines for the jump)."""
     items = []
     if animation == "work":
         _turn, name, items = working(index, start)
@@ -189,7 +189,7 @@ def agent_frame(coat, animation, index, start=0):
     top = h - sprite_h - jump + 1
     canvas.sprite(lines, colors, left, top)
     for item, column, line, _mirror in items:
-        # Peu de place au-dessus de la tête : la crêpe vole moins haut.
+        # Little room above the head: the crepe does not fly as high.
         line = max(line, 1 - top)
         canvas.sprite(sprites.IMAGES[item], colors, left + column, top + line)
     return canvas.image()
@@ -209,8 +209,8 @@ def save(images, path, fps):
 def make_agents():
     os.makedirs(OUT_AGENTS, exist_ok=True)
     count = 0
-    # Chaque pelage commence son cycle de travail à un autre tour : deux agents
-    # voisins ne font pas la même chose en même temps.
+    # Each coat starts its work cycle at a different turn: two neighboring
+    # agents do not do the same thing at the same time.
     coats = list(enumerate(sprites.COATS)) + list(enumerate(sprites.KITTEN_COATS))
     for number, coat in coats:
         for animation in AGENT_ANIMATIONS:
@@ -224,7 +224,7 @@ def make_agents():
 
 
 def main():
-    sprites.SCREENS.update(LEVEL_COLOR)  # l'écran prend la couleur du niveau
+    sprites.SCREENS.update(LEVEL_COLOR)  # the screen takes the color of the level
     os.makedirs(OUT, exist_ok=True)
     count = 0
     for coat in sprites.COATS:
@@ -233,7 +233,7 @@ def main():
                 continue
             length = len(names) * SYMBOL_PERIOD[animation] // math.gcd(len(names), SYMBOL_PERIOD[animation])
             if animation == "work":
-                length = TURN * len(TURNS)  # le cycle entier
+                length = TURN * len(TURNS)  # the whole cycle
             duration = round(1000 / FPS[animation])
             for level in LEVELS:
                 images = [frame(coat, level, animation, i) for i in range(length)]

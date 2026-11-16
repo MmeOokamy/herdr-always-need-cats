@@ -7,7 +7,10 @@ Pixel art cats in the Herdr app (`~/.config/herdr-app`):
 - a usage cat in the sidebar;
 - one cat per Claude Code agent in the agents list;
 - agent notifications shaped like a cat with its speech bubble;
-- the list of every Claude Code session, to resume one.
+- the list of every Claude Code session, to resume one;
+- a strip at the bottom of the window where each agent is a cat walking
+  around, with a little messenger cat when it waits for you or is done;
+- the pane headers, where the cat hops.
 
 The project stands on its own: it holds its drawings, its status line and its
 settings.
@@ -121,6 +124,68 @@ the key is free (otherwise the script says so). The list also opens with
 it personal: Herdr no longer adds its new default shortcuts to it when it
 updates.
 
+## strip-cats: the cats strip
+
+A 128 px strip at the bottom of the window, above the status bar, where each
+agent is a cat walking around a scene. The cat has the same coat as in the
+agents list and the notifications. A speech bubble always says what it does,
+thanks to the Claude Code hooks (see below): "writes main.js",
+"runs: npm test", "waits for your approval".
+
+| Agent | Cat |
+|---|---|
+| working | trots from one spot to another; at each stop, sits at its computer (the screen takes the color of the action: write, read, command, web, sub-agent) or, while Claude thinks, flips a crepe |
+| idle | wanders, then falls asleep after 3 minutes without change in its tab |
+| waits for you (question, permission, plan, error) | hops with a "?" (faster after 2 minutes); orange bubble saying why and for how long |
+| done while you were not looking | jumps for joy, green bubble "Done! Shall we go on?"; once seen, meows "shall we go on?" until you start it again |
+
+- The sub-agents of a session are kittens sitting next to it; a new agent
+  comes running from the edge of the strip.
+- Hover: its coat and name. Click: its agent.
+- Right-click a cat, or `alt-shift-p` (the active agent): the menu. It picks
+  its coat (kept for its terminal, and used by the agents list, the
+  notifications and its pane header too), the scene (living room, kitchen,
+  office, garden, rooftops at night, attic; "Shuffle", the default, changes
+  it every 20 minutes; "None" removes it), when the little cat comes to tell
+  you, and whether the cat hops in its pane.
+
+**The little messenger cat.** When an agent starts waiting for you or is
+done, its cat sends a little cat running up to the middle of the window,
+where it sits with a bubble. A click on it or its bubble opens the agent;
+x sends it away. It comes back every 5 minutes while the agent waits for
+you, and leaves by itself when the agent goes back to work.
+
+**Giving files to an agent.** Drop files (from the file manager) on its cat,
+or on its pane header: the cat eats them, and they land in the agent's prompt
+as `@` mentions (attachments for Claude Code), without sending. A name with
+spaces or accents goes through a link in
+`~/.cache/herdr-always-need-cats/drop/`; an agent on another machine first
+gets the file (`hc put`). Pasting goes through the clipboard: it needs
+`wl-copy` (package `wl-clipboard`, on Wayland) or `xclip` (X11); the
+clipboard is put back as it was when it held text.
+
+**Demo**: `herdr-app do strip-cats.demo` (done) or
+`herdr-app do strip-cats.demo-blocked` (waits for you) plays the scene on the
+active agent for 30 seconds; `herdr-app do strip-cats.demo-eat`, the meal.
+
+### The hooks: what each session does
+
+`hook.py` is declared in `~/.claude/settings.json` for the Claude Code events
+(tools, prompts, notifications, stop, sub-agents), **next to** the hooks
+already there: the we-always-need-cats ones keep receiving everything. In a
+Herdr terminal, it writes what the session does to
+`~/.cache/herdr-always-need-cats/sessions/<session>.json`, which the strip
+reads again as soon as it changes; outside Herdr, it does nothing. Without
+the hooks, the cats still work, with what Herdr knows about the agent
+(working, waiting, done). The texts follow `lang` in `config.json`.
+
+## pane-cats: the pane headers
+
+Each pane header is the Herdr one (program, folder, status, buttons on
+hover), with a cat: when the agent waits for you or is done, the header gets
+tinted (orange, green) and its cat hops there with its bubble. This can be
+turned off in the strip menu ("Hop in its pane").
+
 ## Settings: `config.json`
 
 `install.py` creates `config.json` from `config.example.json`. This file
@@ -129,7 +194,7 @@ updates.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `lang` | `fr` | language of the cats, notifications, sessions list and status line: `fr` or `en` |
+| `lang` | `fr` | language of the cats, notifications, sessions list, strip, hooks and status line: `fr` or `en` |
 | `coat` | `ginger` | coat of the usage cat: `ginger`, `grey`, `black`, `cream`, `brown` or `blue` |
 | `warn` | `50` | usage (%) from which the gauge turns yellow |
 | `alert` | `80` | usage (%) from which the cat meows |
@@ -155,16 +220,21 @@ The script:
 1. creates `config.json` from `config.example.json` when it does not exist;
 2. generates the images when they are missing;
 3. links `~/.config/herdr-app/mods/usage-cat`, `agents-cats`, `toast-cats`,
-   `claude-sessions` and `sessions-footer` to the folders of the clone, and checks them
+   `claude-sessions`, `sessions-footer`, `strip-cats` and `pane-cats` to the
+   folders of the clone, and checks them
    (`herdr-app check`);
 4. creates the `main-usage-cat` layout, a copy of the Herdr `main` layout
    (which cannot be edited): the usage cat block (112 px high) between
    `spaces` and `agents`, the agents list replaced by `agents-cats`,
    notifications shown by `toast-cats`, the sidebar footer replaced by
-   `sessions-footer` (Settings, `sessions`, Add machine); and shows it;
-5. binds `ctrl-shift-j` to the Claude sessions list in
-   `~/.config/herdr-app/keys.json`, when the key is free;
-6. sets `statusline.py` as the Claude Code status line
+   `sessions-footer` (Settings, `sessions`, Add machine), the cats strip
+   (`strip-cats`, 128 px) above the status bar, the pane headers replaced by
+   `pane-cats`; and shows it;
+5. binds `ctrl-shift-j` to the Claude sessions list and `alt-shift-p` to the
+   strip menu in `~/.config/herdr-app/keys.json`, when the keys are free;
+6. declares `hook.py` as a Claude Code hook (`~/.claude/settings.json`), next
+   to the hooks already there;
+7. sets `statusline.py` as the Claude Code status line
    (`~/.claude/settings.json`), unless another status line is already set:
    it is kept, and the script says so. `--statusline` replaces it.
 
@@ -225,8 +295,9 @@ python3 install.py --uninstall
 ```
 
 Goes back to the `main` layout, deletes `main-usage-cat` and the mod links,
-removes the `ctrl-shift-j` shortcut when it still opens the sessions list, and
-removes the Claude Code status line when it is the project's one.
+removes the `ctrl-shift-j` and `alt-shift-p` shortcuts when they still open
+the sessions list and the strip menu, removes `hook.py` from the Claude Code
+hooks (the other hooks stay), and removes the Claude Code status line when it is the project's one.
 
 ## Files
 
@@ -237,6 +308,10 @@ removes the Claude Code status line when it is the project's one.
 | `toast-cats/` | the notifications with the cats (mod) |
 | `claude-sessions/` | the Claude sessions list (mod, and `sessions.py` which reads the sessions) |
 | `sessions-footer/` | the sidebar footer with the `sessions` button (mod and icon) |
+| `strip-cats/` | the cats strip, the menu and the little cat (mod), its images (`img/`, GIF) and its scenes (`scenes/`) |
+| `strip-cats/tools/` | `make_scenes.py` draws the scenes again; `make_sprites.py` and `make_think.py` the GIFs, from a we-always-need-cats clone (Pillow, PyQt6) |
+| `pane-cats/` | the pane headers with the cat (mod and icons) |
+| `hook.py` | Claude Code hook, writes what each session does for the strip |
 | `tools/drawings.py` | drawings and colors of the cats (text, one character per pixel) |
 | `tools/make_sprites.py` | image generation (Pillow) |
 | `statusline.py` | Claude Code status line, writes the usage figures |
@@ -257,6 +332,13 @@ removes the Claude Code status line when it is the project's one.
 - `sessions-footer` builds on the sidebar footer of the Herdr 0.1.15
   `workspace-chrome` mod (Settings, Add machine): its changes do not reach it
   either.
+- `pane-cats` builds on the Herdr 0.1.15 `pane` mod: its changes do not
+  reach it either.
+- The strip images (`strip-cats/img/`, GIF) are not the ones of the other
+  mods (`sprites/`, WebP generated by `tools/make_sprites.py`): they are made
+  from the we-always-need-cats drawings and are generated again with
+  `strip-cats/tools/`.
+- Giving files to an agent needs `wl-copy` or `xclip`.
 - Claude Code has a single status line. The file
   `~/.cache/usage-cat/state.json` has the same format as the one of
   [we-always-need-cats](https://github.com/MmeOokamy/we-always-need-cats)
@@ -266,6 +348,7 @@ removes the Claude Code status line when it is the project's one.
 ## License
 
 MIT (see `LICENSE`), except `agents-cats/main.js`, `toast-cats/main.js`,
-`sessions-footer/main.js` and the `upstream-*.js.txt` files: they build on the
-Herdr `agents`, `toast` and `workspace-chrome` mods, under the Apache 2.0 license (`agents-cats/LICENSE-herdr.txt`), with
+`sessions-footer/main.js`, `pane-cats/main.js` and the `upstream-*.js.txt`
+files: they build on the Herdr `agents`, `toast`, `workspace-chrome` and
+`pane` mods, under the Apache 2.0 license (`agents-cats/LICENSE-herdr.txt`), with
 the changes described above.

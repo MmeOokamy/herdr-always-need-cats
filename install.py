@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-"""Installe les chats dans Herdr.
+"""Installs the cats in Herdr.
 
-1. Génère les images animées (tools/make_sprites.py) si elles manquent.
-2. Relie les mods usage-cat, agents-cats, toast-cats et claude-sessions dans
-   ~/.config/herdr-app/mods
-   (liens symboliques : une modification ici est prise en compte à chaud).
-3. Crée le layout « main-usage-cat » : copie du layout Herdr « main » (non
-   modifiable) avec le chat d'usage dans la barre latérale, entre Spaces et
-   Agents, la liste des agents remplacée par agents-cats et les
-   notifications montrées par toast-cats, le pied de la barre latérale
-   remplacé par sessions-footer (bouton « sessions ») ; et l'affiche.
-4. Ajoute le raccourci ctrl-shift-j (liste des sessions Claude) à
-   keys.json, s'il n'est pas déjà pris.
-5. Déclare statusline.py comme status line de Claude Code, si aucune autre
-   n'est déjà installée (--statusline pour remplacer celle en place).
+1. Generates the animated images (tools/make_sprites.py) if they are missing.
+2. Links the mods usage-cat, agents-cats, toast-cats, claude-sessions,
+   sessions-footer, strip-cats and pane-cats into ~/.config/herdr-app/mods
+   (symbolic links: a change made here is picked up live).
+3. Creates the "main-usage-cat" layout: a copy of Herdr's "main" layout (which
+   cannot be modified) with the usage cat in the sidebar, between Spaces and
+   Agents, the agent list replaced by agents-cats and notifications
+   shown by toast-cats, the sidebar footer replaced by sessions-footer
+   ("sessions" button), the cats strip (strip-cats) above the status bar
+   and the pane header replaced by pane-cats; then displays the layout.
+4. Adds the shortcuts ctrl-shift-j (list of Claude sessions) and
+   alt-shift-p (cats strip menu) to keys.json, if they are free.
+5. Registers hook.py as a Claude Code hook, next to the hooks already in
+   place (it feeds the cats strip).
+6. Registers statusline.py as the Claude Code status line, if no other one
+   is installed yet (--statusline to replace the one in place).
 
-Usage : python3 install.py [--statusline]
-        python3 install.py --uninstall
+Usage: python3 install.py [--statusline]
+       python3 install.py --uninstall
 """
 
 import argparse
@@ -28,20 +31,33 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HERDR = os.path.join(os.path.expanduser("~"), ".config", "herdr-app")
-MODS = ("usage-cat", "agents-cats", "toast-cats", "claude-sessions", "sessions-footer")
+MODS = ("usage-cat", "agents-cats", "toast-cats", "claude-sessions", "sessions-footer", "strip-cats", "pane-cats")
 LAYOUT = "main-usage-cat"
 LAYOUT_FILE = os.path.join(HERDR, "layouts", f"{LAYOUT}.json")
-FLOAT_ID = "usage-cat"  # ancienne version : bloc flottant
+FLOAT_ID = "usage-cat"  # old version: floating block
 BLOCK_ID = "usage-cat"
 BLOCK_HEIGHT = 112
-FOOTER_HEIGHT = 97  # Settings, sessions, Add machine (69 px avec deux lignes)
-CONFIG = os.path.join(HERE, "config.json")  # local, ignoré par git
+FOOTER_HEIGHT = 97  # Settings, sessions, Add machine (69 px with two lines)
+CONFIG = os.path.join(HERE, "config.json")  # local, ignored by git
 CONFIG_EXAMPLE = os.path.join(HERE, "config.example.json")
 STATUSLINE = os.path.join(HERE, "statusline.py")
 CLAUDE_SETTINGS = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
 KEYS_FILE = os.path.join(HERDR, "keys.json")
-SESSIONS_KEY = "ctrl-shift-j"
-SESSIONS_ACTION = "mod.open:claude-sessions"
+# (key, action, role): added to keys.json only if the key is free.
+KEYBINDINGS = (
+    ("ctrl-shift-j", "mod.open:claude-sessions", "sessions Claude"),
+    ("alt-shift-p", "strip-cats.pick", "menu de la bande des chats"),
+)
+STRIP = {"id": "strip-cats", "type": "block", "size": {"px": 128}, "min": 96, "max": 240,
+         "content": {"mod": "strip-cats"}}
+PANE_HEADER = {"content": {"mod": "pane-cats"}, "reveal": "always", "height": 30, "position": "top"}
+HOOK = os.path.join(HERE, "hook.py")
+HOOK_COMMAND = f'python3 "{HOOK}"'
+HOOK_EVENTS = (
+    "PreToolUse", "PostToolUse", "PostToolUseFailure", "UserPromptSubmit", "Notification",
+    "Stop", "StopFailure", "SubagentStart", "SubagentStop", "PreCompact", "SessionStart", "SessionEnd",
+)
+TOOL_EVENTS = ("PreToolUse", "PostToolUse", "PostToolUseFailure")
 
 
 def herdr(*args):
@@ -61,8 +77,17 @@ def find(node, node_id):
     return None
 
 
+def pane_frames(node):
+    """The pane frames (blocks { "tab": ..., "pane": {...} })."""
+    content = node.get("content") or {}
+    if content.get("tab") and isinstance(content.get("pane"), dict):
+        yield content["pane"]
+    for child in node.get("children", []):
+        yield from pane_frames(child)
+
+
 def remove_float(node):
-    """Retire l'ancien chat flottant de tous les nœuds."""
+    """Removes the old floating cat from every node."""
     if "floating" in node:
         node["floating"] = [f for f in node["floating"] if f.get("id") != FLOAT_ID]
         if not node["floating"]:
@@ -96,9 +121,9 @@ def is_ours(status_line):
 
 
 def install_statusline(replace):
-    """Status line de Claude Code : statusline.py écrit les chiffres lus par
-    usage-cat. Une autre status line en place est gardée (celle de
-    we-always-need-cats écrit le même fichier), sauf avec --statusline."""
+    """Claude Code status line: statusline.py writes the figures read by
+    usage-cat. Another status line already in place is kept (the one from
+    we-always-need-cats writes the same file), unless --statusline is given."""
     data = read_claude_settings()
     current = data.get("statusLine")
     if is_ours(current):
@@ -140,38 +165,98 @@ def write_keys(data):
     os.replace(temporary, KEYS_FILE)
 
 
-def install_key():
-    """Raccourci de la liste des sessions Claude, sans prendre une touche déjà utilisée."""
+def install_keys():
+    """Project shortcuts, without taking a key that is already in use."""
     data = read_keys()
     if data is None:
-        print(f"{KEYS_FILE} illisible : raccourci non ajouté")
-        print(f'  (à ajouter à la main : "{SESSIONS_KEY}": "{SESSIONS_ACTION}" dans "global")')
+        print(f"{KEYS_FILE} illisible : raccourcis non ajoutés")
+        for key, action, _role in KEYBINDINGS:
+            print(f'  (à ajouter à la main dans "global" : "{key}": "{action}")')
         return
-    sections = [v for v in data.values() if isinstance(v, dict)]
-    if any(v.get(SESSIONS_KEY) == SESSIONS_ACTION for v in sections):
-        return
-    used = next((v[SESSIONS_KEY] for v in sections if SESSIONS_KEY in v), None)
-    if used is not None:
-        print(f"{SESSIONS_KEY} est déjà pris ({used}) : sessions Claude sans raccourci")
-        print(f'  (à lier à une autre touche dans {KEYS_FILE} : "{SESSIONS_ACTION}")')
-        return
-    data.setdefault("global", {})[SESSIONS_KEY] = SESSIONS_ACTION
-    write_keys(data)
-    print(f"Raccourci ajouté : {SESSIONS_KEY} (sessions Claude)")
+    changed = False
+    for key, action, role in KEYBINDINGS:
+        sections = [v for v in data.values() if isinstance(v, dict)]
+        if any(v.get(key) == action for v in sections):
+            continue
+        used = next((v[key] for v in sections if key in v), None)
+        if used is not None:
+            print(f"{key} est déjà pris ({used}) : {role} sans raccourci")
+            print(f'  (à lier à une autre touche dans {KEYS_FILE} : "{action}")')
+            continue
+        data.setdefault("global", {})[key] = action
+        changed = True
+        print(f"Raccourci ajouté : {key} ({role})")
+    if changed:
+        write_keys(data)
 
 
-def uninstall_key():
+def uninstall_keys():
     data = read_keys()
     if not data:
         return
     changed = False
-    for section in data.values():
-        if isinstance(section, dict) and section.get(SESSIONS_KEY) == SESSIONS_ACTION:
-            del section[SESSIONS_KEY]
-            changed = True
+    for key, action, _role in KEYBINDINGS:
+        for section in data.values():
+            if isinstance(section, dict) and section.get(key) == action:
+                del section[key]
+                changed = True
+                print(f"Raccourci retiré : {key}")
     if changed:
         write_keys(data)
-        print(f"Raccourci retiré : {SESSIONS_KEY}")
+
+
+def is_our_hook(entry):
+    return isinstance(entry, dict) and any(
+        isinstance(h, dict) and HOOK in str(h.get("command", "")) for h in entry.get("hooks", []))
+
+
+def install_hooks():
+    """hook.py receives Claude Code events, next to the hooks already in place
+    (those of we-always-need-cats keep receiving everything)."""
+    data = read_claude_settings()
+    hooks = data.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        print("hooks de ~/.claude/settings.json illisibles : hook.py non déclaré")
+        return
+    # The folder the cats strip watches, before the first event.
+    os.makedirs(os.path.join(os.path.expanduser("~"), ".cache", "herdr-always-need-cats", "sessions"), exist_ok=True)
+    added = []
+    for event in HOOK_EVENTS:
+        entries = hooks.setdefault(event, [])
+        if not isinstance(entries, list) or any(is_our_hook(e) for e in entries):
+            continue
+        entry = {"hooks": [{"type": "command", "command": HOOK_COMMAND}]}
+        if event in TOOL_EVENTS:
+            entry = {"matcher": "*", **entry}
+        entries.append(entry)
+        added.append(event)
+    if added:
+        write_claude_settings(data)
+        print(f"Hooks de Claude Code : {HOOK} ({len(added)} événements)")
+
+
+def uninstall_hooks():
+    data = read_claude_settings()
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+    changed = False
+    for event in list(hooks):
+        entries = hooks[event]
+        if not isinstance(entries, list):
+            continue
+        kept = [e for e in entries if not is_our_hook(e)]
+        if len(kept) != len(entries):
+            changed = True
+            if kept:
+                hooks[event] = kept
+            else:
+                del hooks[event]
+    if changed:
+        if not hooks:
+            del data["hooks"]
+        write_claude_settings(data)
+        print("Hooks de Claude Code retirés")
 
 
 def install(replace_statusline):
@@ -180,7 +265,7 @@ def install(replace_statusline):
         print(f"Réglages : {CONFIG}")
 
     missing = [
-        mod for mod in ("usage-cat", "agents-cats")  # les mods qui ont des images
+        mod for mod in ("usage-cat", "agents-cats")  # the mods that have images
         if not os.path.isdir(os.path.join(HERE, mod, "sprites")) or not os.listdir(os.path.join(HERE, mod, "sprites"))
     ]
     if missing:
@@ -226,14 +311,27 @@ def install(replace_statusline):
     if footer is not None:
         footer["content"] = {"mod": "sessions-footer"}
         footer["size"] = {"px": FOOTER_HEIGHT}
-    layout["toast"] = "toast-cats"  # clé de la racine du layout
+    # The cats strip, at the bottom of the main column, above the status bar.
+    work = find(layout, "work")
+    if work is not None and find(layout, STRIP["id"]) is None:
+        kids = work["children"]
+        status = next((i for i, c in enumerate(kids) if c.get("id") == "status"), len(kids))
+        kids.insert(status, dict(STRIP))
+    # The pane header, where the cat jumps.
+    for frame in pane_frames(layout):
+        header = frame.get("header")
+        if not header:
+            frame["header"] = dict(PANE_HEADER)
+        elif header.get("content", {}).get("mod") == "pane":
+            header["content"]["mod"] = "pane-cats"
+    layout["toast"] = "toast-cats"  # key at the root of the layout
     temporary = LAYOUT_FILE + ".tmp"
     with open(temporary, "w", encoding="utf-8") as f:
         json.dump(layout, f, indent=2, ensure_ascii=False)
         f.write("\n")
     os.replace(temporary, LAYOUT_FILE)
-    # Herdr ne recharge un mod qu'au changement de layout : passer par main
-    # quand le layout est déjà affiché, pour charger les nouvelles versions.
+    # Herdr only reloads a mod when the layout changes: go through main
+    # when the layout is already displayed, to load the new versions.
     try:
         shown = json.loads(herdr("status")).get("layout")
     except ValueError:
@@ -242,7 +340,8 @@ def install(replace_statusline):
         herdr("do", "layout.switch", json.dumps({"name": "main"}))
     herdr("do", "layout.switch", json.dumps({"name": LAYOUT}))
     print(f"Layout affiché : {LAYOUT} (ctrl-shift-l pour changer de layout)")
-    install_key()
+    install_keys()
+    install_hooks()
     install_statusline(replace_statusline)
 
 
@@ -256,7 +355,8 @@ def uninstall():
         if os.path.islink(target):
             os.unlink(target)
             print(f"Mod retiré : {target}")
-    uninstall_key()
+    uninstall_keys()
+    uninstall_hooks()
     uninstall_statusline()
 
 

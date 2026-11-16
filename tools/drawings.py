@@ -1,4 +1,4 @@
-"""Dessins pixel art des chats (copie de sprites.py de we-always-need-cats, sans Qt).
+"""Pixel art drawings of the cats (copy of sprites.py from we-always-need-cats, without Qt).
 
 Every sprite is a list of text lines, one character per pixel:
 
@@ -13,7 +13,7 @@ Every sprite is a list of text lines, one character per pixel:
     Y  yarn               R  darker yarn strands
     1-6  stickers of the Rubik's cube, a-f the same colors lighter
 
-Après une modification : python3 tools/make_sprites.py
+After a change: python3 tools/make_sprites.py
 """
 
 # Size of the cell each sprite is placed in (bottom-aligned, centered).

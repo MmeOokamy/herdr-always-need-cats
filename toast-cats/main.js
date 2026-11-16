@@ -1,38 +1,40 @@
-// toast-cats : les notifications de Herdr, avec un chat pour les agents.
+// toast-cats: Herdr notifications, with a cat for agents.
 //
-// Remplace le mod "toast" de Herdr 0.1.15 (upstream-toast-0.1.15.js.txt), choisi par
-// la clé "toast" du layout. Quand une notification concerne un agent Claude
-// Code (il a fini, ou il a besoin de toi), elle prend la forme des chats de
-// we-always-need-cats : une bulle au-dessus du chat de l'agent, du même pelage
-// que dans la liste des agents (agents-cats), qui saute de joie quand il a
-// fini et miaule quand il attend. Les autres notifications gardent leur
-// apparence d'origine.
+// Replaces the "toast" mod of Herdr 0.1.15 (upstream-toast-0.1.15.js.txt), selected
+// by the "toast" key of the layout. When a notification is about a Claude
+// Code agent (it has finished, or it needs you), it takes the shape of the
+// we-always-need-cats cats: a bubble above the agent's cat, with the same coat
+// as in the agent list (agents-cats), which jumps for joy when it has
+// finished and meows when it is waiting. Other notifications keep their
+// original look.
 //
-// Comme l'original : un clic lance l'action de la notification (afficher
-// l'agent) et la ferme ; Herdr la ferme seul au bout de quelques secondes.
+// Like the original: a click runs the notification's action (show the
+// agent) and closes it; Herdr closes it on its own after a few seconds.
 
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, appHome, closeOverlay, props, readTextFile, run, theme } from "herdr";
+import { agents, appHome, closeOverlay, props, readTextFile, run, shared, theme } from "herdr";
 
 const DOT = { error: "blocked", warning: "working", success: "done", info: "accent" };
 
-// Mêmes pelages et même choix que agents-cats : un agent garde son chat.
+// Same coats and same choice as agents-cats and strip-cats: an agent keeps its cat.
 const CAT_COATS = ["ginger", "grey", "black", "cream", "brown", "blue"];
 const isClaude = (p) => p?.app === "claude-code" || p?.program?.key === "claude" || /claude/i.test(p?.program?.name ?? "");
 function coatOf(address) {
+  const picked = shared("strip-cats")?.terminals?.[address]; // picked in the strip menu
+  if (CAT_COATS.includes(picked)) return picked;
   let h = 0;
   for (const c of address) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return CAT_COATS[h % CAT_COATS.length];
 }
 
-// Couleurs des chats de we-always-need-cats.
+// Colors of the we-always-need-cats cats.
 const OUTLINE = "#2B2230";
 const CREAM = "#FFFDF5";
 const BORDER = { done: "#2F9E44", blocked: "#E8590C" };
 const ANIMATION = { done: "done", blocked: "question" };
 
-const CAT_W = 55; // image générée en 176 x 160
+const CAT_W = 55; // image generated at 176 x 160
 const CAT_H = 50;
 
 const TEXTS = {
@@ -40,10 +42,10 @@ const TEXTS = {
   en: { done: "done", blocked: "needs you" },
 };
 
-// L'agent dont parle la notification. Celles de Herdr ont pour titre
-// "Claude Code finished" ou "... needs you", pour corps "<space> / <tab>" et
-// pour action { name: "agent.focus", args: { terminal: "t1" } }. Sans
-// argument, le dernier agent à avoir fini ou à attendre.
+// The agent the notification is about. Herdr's have the title
+// "Claude Code finished" or "... needs you", the body "<space> / <tab>" and
+// the action { name: "agent.focus", args: { terminal: "t1" } }. Without
+// arguments, the last agent to have finished or to be waiting.
 function agentOf(p) {
   const list = agents() ?? [];
   const args = p.action?.args ?? {};
@@ -58,13 +60,13 @@ function agentOf(p) {
 export default class Toast extends View {
   init(_props, cx) {
     this.lang = "fr";
-    // Le dossier du mod est un lien vers le clone : config.json est à côté.
+    // The mod folder is a link to the clone: config.json sits next to it.
     cx.spawn(async (cx) => {
       try {
         const data = JSON.parse((await readTextFile(`${appHome()}/mods/toast-cats/../config.json`)) ?? "{}");
         if (data?.lang) this.lang = String(data.lang).toLowerCase();
       } catch (_e) {
-        // pas de config : français
+        // no config: French
       }
       cx.notify();
     });
@@ -82,19 +84,19 @@ export default class Toast extends View {
     return this.plain(p);
   }
 
-  // --- Chat d'agent --------------------------------------------------------
+  // --- Agent cat -----------------------------------------------------------
 
   cat(p, agent) {
     const needs = agent.status === "blocked" || /needs you/i.test(p.title ?? "");
     const state = needs ? "blocked" : "done";
     const text = TEXTS[this.lang] ?? TEXTS.fr;
-    // Comme les chats de session : le projet, puis ce qui se passe.
+    // Like the session cats: the project, then what is happening.
     const tab = /^\d+$/.test(agent.tab_name ?? "") ? "" : ` / ${agent.tab_name}`;
     const project = agent.space_name ? `${agent.space_name}${tab}` : p.body || "Claude Code";
     const line = agent.title ? `${text[state]} : ${agent.title}` : text[state];
     const sprite = `mods/agents-cats/sprites/${coatOf(agent.address)}-${ANIMATION[state]}.webp`;
-    // La hauteur d'une notification est fixée par Herdr (64 px environ) :
-    // le chat à gauche, sa bulle à droite.
+    // A notification's height is set by Herdr (about 64 px):
+    // the cat on the left, its bubble on the right.
     const bubble = v_flex()
       .flex_1()
       .min_w(0)
@@ -120,7 +122,7 @@ export default class Toast extends View {
       .child(bubble);
   }
 
-  // --- Autres notifications : le toast d'origine ---------------------------
+  // --- Other notifications: the original toast -----------------------------
 
   plain(p) {
     const t = theme();
