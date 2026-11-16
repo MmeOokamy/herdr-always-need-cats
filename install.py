@@ -2,13 +2,17 @@
 """Installe les chats dans Herdr.
 
 1. Génère les images animées (tools/make_sprites.py) si elles manquent.
-2. Relie les mods usage-cat, agents-cats et toast-cats dans ~/.config/herdr-app/mods
+2. Relie les mods usage-cat, agents-cats, toast-cats et claude-sessions dans
+   ~/.config/herdr-app/mods
    (liens symboliques : une modification ici est prise en compte à chaud).
 3. Crée le layout « main-usage-cat » : copie du layout Herdr « main » (non
    modifiable) avec le chat d'usage dans la barre latérale, entre Spaces et
    Agents, la liste des agents remplacée par agents-cats et les
-   notifications montrées par toast-cats ; et l'affiche.
-4. Déclare statusline.py comme status line de Claude Code, si aucune autre
+   notifications montrées par toast-cats, le pied de la barre latérale
+   remplacé par sessions-footer (bouton « sessions ») ; et l'affiche.
+4. Ajoute le raccourci ctrl-shift-j (liste des sessions Claude) à
+   keys.json, s'il n'est pas déjà pris.
+5. Déclare statusline.py comme status line de Claude Code, si aucune autre
    n'est déjà installée (--statusline pour remplacer celle en place).
 
 Usage : python3 install.py [--statusline]
@@ -24,16 +28,20 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HERDR = os.path.join(os.path.expanduser("~"), ".config", "herdr-app")
-MODS = ("usage-cat", "agents-cats", "toast-cats")
+MODS = ("usage-cat", "agents-cats", "toast-cats", "claude-sessions", "sessions-footer")
 LAYOUT = "main-usage-cat"
 LAYOUT_FILE = os.path.join(HERDR, "layouts", f"{LAYOUT}.json")
 FLOAT_ID = "usage-cat"  # ancienne version : bloc flottant
 BLOCK_ID = "usage-cat"
 BLOCK_HEIGHT = 112
+FOOTER_HEIGHT = 97  # Settings, sessions, Add machine (69 px avec deux lignes)
 CONFIG = os.path.join(HERE, "config.json")  # local, ignoré par git
 CONFIG_EXAMPLE = os.path.join(HERE, "config.example.json")
 STATUSLINE = os.path.join(HERE, "statusline.py")
 CLAUDE_SETTINGS = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+KEYS_FILE = os.path.join(HERDR, "keys.json")
+SESSIONS_KEY = "ctrl-shift-j"
+SESSIONS_ACTION = "mod.open:claude-sessions"
 
 
 def herdr(*args):
@@ -113,6 +121,59 @@ def uninstall_statusline():
         print("Status line retirée de Claude Code")
 
 
+def read_keys():
+    try:
+        with open(KEYS_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {}
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_keys(data):
+    temporary = KEYS_FILE + ".tmp"
+    with open(temporary, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.replace(temporary, KEYS_FILE)
+
+
+def install_key():
+    """Raccourci de la liste des sessions Claude, sans prendre une touche déjà utilisée."""
+    data = read_keys()
+    if data is None:
+        print(f"{KEYS_FILE} illisible : raccourci non ajouté")
+        print(f'  (à ajouter à la main : "{SESSIONS_KEY}": "{SESSIONS_ACTION}" dans "global")')
+        return
+    sections = [v for v in data.values() if isinstance(v, dict)]
+    if any(v.get(SESSIONS_KEY) == SESSIONS_ACTION for v in sections):
+        return
+    used = next((v[SESSIONS_KEY] for v in sections if SESSIONS_KEY in v), None)
+    if used is not None:
+        print(f"{SESSIONS_KEY} est déjà pris ({used}) : sessions Claude sans raccourci")
+        print(f'  (à lier à une autre touche dans {KEYS_FILE} : "{SESSIONS_ACTION}")')
+        return
+    data.setdefault("global", {})[SESSIONS_KEY] = SESSIONS_ACTION
+    write_keys(data)
+    print(f"Raccourci ajouté : {SESSIONS_KEY} (sessions Claude)")
+
+
+def uninstall_key():
+    data = read_keys()
+    if not data:
+        return
+    changed = False
+    for section in data.values():
+        if isinstance(section, dict) and section.get(SESSIONS_KEY) == SESSIONS_ACTION:
+            del section[SESSIONS_KEY]
+            changed = True
+    if changed:
+        write_keys(data)
+        print(f"Raccourci retiré : {SESSIONS_KEY}")
+
+
 def install(replace_statusline):
     if not os.path.exists(CONFIG):
         shutil.copyfile(CONFIG_EXAMPLE, CONFIG)
@@ -161,6 +222,10 @@ def install(replace_statusline):
     agents = find(layout, "agents")
     if agents is not None:
         agents["content"]["mod"] = "agents-cats"
+    footer = find(layout, "sidebar-footer")
+    if footer is not None:
+        footer["content"] = {"mod": "sessions-footer"}
+        footer["size"] = {"px": FOOTER_HEIGHT}
     layout["toast"] = "toast-cats"  # clé de la racine du layout
     temporary = LAYOUT_FILE + ".tmp"
     with open(temporary, "w", encoding="utf-8") as f:
@@ -177,6 +242,7 @@ def install(replace_statusline):
         herdr("do", "layout.switch", json.dumps({"name": "main"}))
     herdr("do", "layout.switch", json.dumps({"name": LAYOUT}))
     print(f"Layout affiché : {LAYOUT} (ctrl-shift-l pour changer de layout)")
+    install_key()
     install_statusline(replace_statusline)
 
 
@@ -190,6 +256,7 @@ def uninstall():
         if os.path.islink(target):
             os.unlink(target)
             print(f"Mod retiré : {target}")
+    uninstall_key()
     uninstall_statusline()
 
 
