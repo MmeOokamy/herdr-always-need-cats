@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Status line de Claude Code : fournit les chiffres d'usage au chat de Herdr.
+"""Claude Code status line: provides the usage figures to the Herdr cat.
 
-Claude Code lance ce script à chaque rafraîchissement de sa status line et lui
-donne sur l'entrée standard un JSON qui contient les limites d'usage du compte
-(`rate_limits` : session de 5 heures et semaine). Le script les enregistre dans
-~/.cache/usage-cat/state.json, que le mod usage-cat relit, et affiche une
-ligne de résumé.
+Claude Code runs this script on every refresh of its status line and passes
+it on standard input a JSON that contains the account's usage limits
+(`rate_limits`: 5-hour session and week). The script saves them in
+~/.cache/usage-cat/state.json, which the usage-cat mod reads, and prints a
+summary line.
 
-Le fichier a le même format que celui de we-always-need-cats : l'une ou
-l'autre des deux status lines peut alimenter le mod.
+The file has the same format as the one from we-always-need-cats: either of
+the two status lines can feed the mod.
 """
 
 import json
@@ -27,7 +27,7 @@ SETTINGS = {
     "warn": 50,
     "alert": 80,
     "critical": 95,
-    "statusline": True,  # false : enregistre les chiffres sans rien afficher
+    "statusline": True,  # false: saves the figures without printing anything
 }
 TEXTS = {
     "fr": {"five_hour": "Session", "seven_day": "Semaine", "status": "{label} {pct} %",
@@ -49,7 +49,7 @@ def load_settings():
 
 
 def to_epoch(value):
-    """Heure de reset en secondes depuis l'epoch (Claude Code envoie des secondes)."""
+    """Reset time in seconds since the epoch (Claude Code sends seconds)."""
     if isinstance(value, (int, float)):
         return value / 1000 if value > 1e11 else value
     if isinstance(value, str):
@@ -63,7 +63,7 @@ def to_epoch(value):
 
 
 def claude_pid():
-    """Remonte les processus parents jusqu'à Claude Code."""
+    """Walks up the parent processes to Claude Code."""
     pid = os.getppid()
     for _ in range(8):
         try:
@@ -109,7 +109,7 @@ def update_state(event, now):
                     "pct": float(data["used_percentage"]),
                     "resets_at": to_epoch(data.get("resets_at")),
                 }
-    # Sans limites (début de session), les dernières valeurs connues restent.
+    # Without limits (start of a session), the last known values remain.
     state["ts"] = now
     state["pid"] = claude_pid()
     write_state(state)
@@ -117,7 +117,7 @@ def update_state(event, now):
 
 
 def window(state, name, now):
-    """(pourcentage utilisé, heure de reset), (0, None) si le reset est passé."""
+    """(percentage used, reset time), (0, None) if the reset has passed."""
     data = state.get(name)
     if not isinstance(data, dict) or data.get("pct") is None:
         return None, None
@@ -142,7 +142,7 @@ def format_reset(reset, now, text):
 
 
 def status_text(state, now, text):
-    """Une ligne : Session 42 % ↻ 14:00 · Semaine 12 %"""
+    """One line: Session 42 % ↻ 14:00 · Semaine 12 %"""
     parts = []
     for name in WINDOWS:
         pct, reset = window(state, name, now)

@@ -1,9 +1,9 @@
 // Agents in grouped or priority views; parents take their most urgent sub-agent's place.
 //
-// agents-cats : copie du mod "agents" de Herdr 0.1.15 (upstream-agents-0.1.15.js.txt)
-// où les agents Claude Code ont pour icône un chat en pixel art,
-// animé selon leur état, et leurs sous-agents un chaton. Les seules
-// modifications sont marquées "agents-cats".
+// agents-cats: copy of the "agents" mod of Herdr 0.1.15 (upstream-agents-0.1.15.js.txt)
+// where Claude Code agents have a pixel art cat as their icon,
+// animated by their state, and their sub-agents a kitten. The only
+// changes are marked "agents-cats".
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
@@ -74,22 +74,25 @@ function duration(ms) {
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
-// agents-cats : un chat par agent Claude Code, un chaton par sous-agent.
+// agents-cats: one cat per Claude Code agent, one kitten per sub-agent.
 const CAT_COATS = ["ginger", "grey", "black", "cream", "brown", "blue"];
 const KITTEN_COATS = ["pink", "mint", "lavender", "sky", "lemon", "coral"];
 const CAT_ANIMATION = { working: "work", blocked: "question", done: "done", idle: "idle" };
-const SLEEP_AFTER = 3 * 60 * 1000; // repos avant de s'endormir
+const SLEEP_AFTER = 3 * 60 * 1000; // idle time before falling asleep
 
 const isClaude = (p) => p?.app === "claude-code" || p?.program?.key === "claude" || /claude/i.test(p?.program?.name ?? "");
 
-// Pelage stable pour une adresse de terminal.
+// Stable coat for a terminal address, unless it was picked in the menu of the cat strip
+// (strip-cats): the same cat everywhere.
 function coatOf(address, coats) {
+  const picked = shared("strip-cats")?.terminals?.[address];
+  if (coats === CAT_COATS && CAT_COATS.includes(picked)) return picked;
   let h = 0;
   for (const c of address) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return coats[h % coats.length];
 }
 
-// Image animée du chat (ou null : icône habituelle du programme).
+// Animated image of the cat (or null: the program's usual icon).
 function catIcon(a, status, kitten = false, asleep = false) {
   if (!isClaude(a)) return null;
   const animation = asleep ? "sleep" : CAT_ANIMATION[status] ?? "idle";
@@ -213,7 +216,7 @@ export default class Agents extends View {
       .pl(39)
       .pr(8)
       .rounded(8)
-      .h(32) // agents-cats : 26 d'origine, chaton plus grand
+      .h(32) // agents-cats: 26 originally, bigger kitten
       .flex_none()
       .gap(0)
       .items_center()
@@ -320,7 +323,7 @@ export default class Agents extends View {
     }
 
     const row = (a, i, subs = []) => {
-      // agents-cats : un agent au repos depuis longtemps s'endort.
+      // agents-cats: an agent idle for a long time falls asleep.
       const asleep = a.status === "idle" && !a.focused && this.since(a) > 0 && now - this.since(a) > SLEEP_AFTER;
       const pic = catIcon(a, a.status, false, asleep) ?? icon(a.program, 16, t.foreground);
       const more = detail.get(a.address);
@@ -366,7 +369,7 @@ export default class Agents extends View {
       return h_flex()
         .id(`ag-${a.address}`)
         .px(8)
-        .h(42) // agents-cats : 30 d'origine, chat plus grand
+        .h(42) // agents-cats: 30 originally, bigger cat
         .flex_none()
         .rounded(8)
         .items_center()
