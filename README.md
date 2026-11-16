@@ -6,7 +6,8 @@ Pixel art cats in the Herdr app (`~/.config/herdr-app`):
 
 - a usage cat in the sidebar;
 - one cat per Claude Code agent in the agents list;
-- agent notifications shaped like a cat with its speech bubble.
+- agent notifications shaped like a cat with its speech bubble;
+- the list of every Claude Code session, to resume one.
 
 The project stands on its own: it holds its drawings, its status line and its
 settings.
@@ -81,6 +82,45 @@ cat, Herdr) keep their look.
 
 The mod is chosen by the `"toast"` key of the `main-usage-cat` layout.
 
+## claude-sessions: the Claude sessions
+
+The `sessions` button (a cat head), under Settings at the bottom of the
+sidebar, or `ctrl-shift-j`, opens the list of every Claude Code session saved on the
+machine (`~/.claude/projects`), newest first. Each row shows the session's
+title (the name given with `/rename`, else the title Claude Code picked, else
+the first prompt), its project, its branch, the number of prompts, the last
+prompt and its date.
+
+- Typing filters the list (title, project, folder, branch, prompts; every
+  word must appear).
+- Up, down, page up, page down to pick; Enter or click to open; Esc to
+  close.
+
+| Session | Enter or click |
+|---|---|
+| closed | resumes it (`claude --resume <id>`) in a new tab, in the Herdr space that has a terminal in its folder, else in a new space |
+| open in Herdr ("open" label) | shows its agent |
+| open outside Herdr (another terminal, an IDE) | nothing: resuming it would make two sessions on the same history |
+
+Right-click a session: a menu offers to resume it (or to show it when it is
+open in Herdr) and to delete it. Deleting asks first ("Are you sure you want
+to delete the session `<id>` "title"?"; Enter confirms, Esc cancels), then
+moves to the trash the session file, its folder (sub-agents) and its
+`~/.claude/file-history/<id>` and `~/.claude/session-env/<id>` folders.
+Without `gio`, they are deleted for good. An open session cannot be deleted:
+close it first.
+
+Session files are read by `claude-sessions/sessions.py`. What it takes from
+them is kept in `~/.cache/herdr-always-need-cats/sessions.json`: only a file
+changed since then is read again (the first opening takes a few seconds).
+Empty sessions (opened then left without a prompt) are not listed.
+
+`install.py` adds the shortcut to `~/.config/herdr-app/keys.json`, only when
+the key is free (otherwise the script says so). The list also opens with
+`herdr-app do mod.open --name claude-sessions`. Any edit to `keys.json` makes
+it personal: Herdr no longer adds its new default shortcuts to it when it
+updates.
+
 ## Settings: `config.json`
 
 `install.py` creates `config.json` from `config.example.json`. This file
@@ -89,7 +129,7 @@ updates.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `lang` | `fr` | language of the cats, notifications and status line: `fr` or `en` |
+| `lang` | `fr` | language of the cats, notifications, sessions list and status line: `fr` or `en` |
 | `coat` | `ginger` | coat of the usage cat: `ginger`, `grey`, `black`, `cream`, `brown` or `blue` |
 | `warn` | `50` | usage (%) from which the gauge turns yellow |
 | `alert` | `80` | usage (%) from which the cat meows |
@@ -114,14 +154,17 @@ The script:
 
 1. creates `config.json` from `config.example.json` when it does not exist;
 2. generates the images when they are missing;
-3. links `~/.config/herdr-app/mods/usage-cat`, `agents-cats` and
-   `toast-cats` to the folders of the clone, and checks them
+3. links `~/.config/herdr-app/mods/usage-cat`, `agents-cats`, `toast-cats`,
+   `claude-sessions` and `sessions-footer` to the folders of the clone, and checks them
    (`herdr-app check`);
 4. creates the `main-usage-cat` layout, a copy of the Herdr `main` layout
    (which cannot be edited): the usage cat block (112 px high) between
    `spaces` and `agents`, the agents list replaced by `agents-cats`,
-   notifications shown by `toast-cats`; and shows it;
-5. sets `statusline.py` as the Claude Code status line
+   notifications shown by `toast-cats`, the sidebar footer replaced by
+   `sessions-footer` (Settings, `sessions`, Add machine); and shows it;
+5. binds `ctrl-shift-j` to the Claude sessions list in
+   `~/.config/herdr-app/keys.json`, when the key is free;
+6. sets `statusline.py` as the Claude Code status line
    (`~/.claude/settings.json`), unless another status line is already set:
    it is kept, and the script says so. `--statusline` replaces it.
 
@@ -182,7 +225,8 @@ python3 install.py --uninstall
 ```
 
 Goes back to the `main` layout, deletes `main-usage-cat` and the mod links,
-and removes the Claude Code status line when it is the project's one.
+removes the `ctrl-shift-j` shortcut when it still opens the sessions list, and
+removes the Claude Code status line when it is the project's one.
 
 ## Files
 
@@ -191,6 +235,8 @@ and removes the Claude Code status line when it is the project's one.
 | `usage-cat/` | the usage cat (gpui-kit mod and its images) |
 | `agents-cats/` | the agents list with the cats (mod and images) |
 | `toast-cats/` | the notifications with the cats (mod) |
+| `claude-sessions/` | the Claude sessions list (mod, and `sessions.py` which reads the sessions) |
+| `sessions-footer/` | the sidebar footer with the `sessions` button (mod and icon) |
 | `tools/drawings.py` | drawings and colors of the cats (text, one character per pixel) |
 | `tools/make_sprites.py` | image generation (Pillow) |
 | `statusline.py` | Claude Code status line, writes the usage figures |
@@ -208,6 +254,9 @@ and removes the Claude Code status line when it is the project's one.
   their changes: for a new Herdr version, compare these files with the new
   `~/.config/herdr-app/mods/agents/main.js` and `toast/main.js`, then carry
   the changes over (marked `agents-cats` in the first one).
+- `sessions-footer` builds on the sidebar footer of the Herdr 0.1.15
+  `workspace-chrome` mod (Settings, Add machine): its changes do not reach it
+  either.
 - Claude Code has a single status line. The file
   `~/.cache/usage-cat/state.json` has the same format as the one of
   [we-always-need-cats](https://github.com/MmeOokamy/we-always-need-cats)
@@ -216,7 +265,7 @@ and removes the Claude Code status line when it is the project's one.
 
 ## License
 
-MIT (see `LICENSE`), except `agents-cats/main.js`, `toast-cats/main.js` and
-the `upstream-*.js.txt` files: they build on the Herdr `agents` and `toast`
-mods, under the Apache 2.0 license (`agents-cats/LICENSE-herdr.txt`), with
+MIT (see `LICENSE`), except `agents-cats/main.js`, `toast-cats/main.js`,
+`sessions-footer/main.js` and the `upstream-*.js.txt` files: they build on the
+Herdr `agents`, `toast` and `workspace-chrome` mods, under the Apache 2.0 license (`agents-cats/LICENSE-herdr.txt`), with
 the changes described above.
